@@ -32,7 +32,7 @@ class Plotter:
             plt.plot(val_loss)
         plt.xlabel('Epoch [n]')
         plt.ylabel('Loss [-]')
-        plt.title('Loss history during training')
+        plt.title('Loss history during training.')
         plt.tight_layout()
         if val_loss is not None:
             plt.legend(['loss', 'loss - validation'])
@@ -52,12 +52,12 @@ class Plotter:
             plt.plot(val_accuracy)
         plt.xlabel('Epoch [n]')
         plt.ylabel('Acuracy [-]')
-        plt.title('Przebieg dokladnosci podczas treningu')
+        plt.title('Accuracy history during training.')
         plt.tight_layout()
         if val_accuracy is not None:
-            plt.legend(['dokladnosc', 'dokladnosc - walidacja'])
+            plt.legend(['accuracy', 'accuracy - validation'])
         else:
-            plt.legend(['dokladnosc'])
+            plt.legend(['accuracy'])
         plt.grid(True)
         plt.savefig(file_path)
         plt.close()
@@ -70,12 +70,12 @@ class Plotter:
         plt.plot(miou)
         if val_miou is not None:
             plt.plot(val_miou)
-        plt.xlabel('Epoka [n]')
+        plt.xlabel('Epoch [n]')
         plt.ylabel('mIoU [-]')
-        plt.title('Przebieg mIoU podczas treningu')
+        plt.title('mIoU history during training')
         plt.tight_layout()
         if val_miou is not None:
-            plt.legend(['mIoU', 'mIoU - walidacja'])
+            plt.legend(['mIoU', 'mIoU - validation'])
         else:
             plt.legend(['mIoU'])
         plt.grid(True)
@@ -97,11 +97,11 @@ class Plotter:
         plt.figure(figsize=(8, 6))
         plt.imshow(cm, cmap='Blues')
         plt.colorbar()
-        plt.title("Macierz bledow")
-        plt.ylabel("Klasy rzeczywiste")
-        plt.xlabel("Klasy estymowane")
+        plt.title("Confusion matrix")
+        plt.ylabel("Target classes")
+        plt.xlabel("Estimated classes")
 
-        class_names = [f"Klasa_{i}" for i in range(self.class_num)]
+        class_names = [f"Class_{i}" for i in range(self.class_num)]
         plt.xticks(range(len(class_names)), class_names, rotation=45, ha='right')
         plt.yticks(range(len(class_names)), class_names)
 
@@ -125,14 +125,14 @@ class Plotter:
 
         for i in range(self.class_num):
 
-            legend.append(f'Krzywa dla: Klasa_{i}')
+            legend.append(f'Curve of Class_{i}')
             precision, recall, thresholds = precision_recall_curve(target == i, pred_prob[:, i])
             plt.plot(recall, precision, label=legend[i])
 
-        plt.xlabel('Odwolanie')
+        plt.xlabel('Recall')
         plt.legend()
-        plt.title(f'Krzywa precyzji i odwolania')
-        plt.ylabel('Precyzja')
+        plt.title(f'Precision recall curve')
+        plt.ylabel('Precision')
         plt.grid(True)
 
         plt.savefig(file_path)
