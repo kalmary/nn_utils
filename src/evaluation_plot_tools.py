@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_curve, roc_curve, auc, classification_report
 from sklearn.preprocessing import label_binarize
 import numpy as np
-
+import seaborn as sns
 
 import pathlib as pth
 from typing import Union, Optional
@@ -17,10 +17,6 @@ class Plotter:
     def __init__(self, class_num: int, plots_dir: Union[str, pth.Path]):
         self.class_num = class_num
         self.plots_dir = pth.Path(plots_dir)
-        assert self.plots_dir.is_dir(), f'Plot directory {self.plots_dir} is not a directory'
-
-        if not self.plot_dir.exists():
-            self.plots_dir.mkdir(parents=True, exist_ok=True)
 
     def plot_loss(self, file_name: str,
                   loss: list[float], val_loss: Optional[list[float]] = None):
@@ -32,18 +28,19 @@ class Plotter:
             plt.plot(val_loss)
         plt.xlabel('Epoch [n]')
         plt.ylabel('Loss [-]')
-        plt.title('Loss history during training.')
+        plt.title('Loss progression during training')
         plt.tight_layout()
         if val_loss is not None:
-            plt.legend(['loss', 'loss - validation'])
+            plt.legend(['Loss', 'Loss - validation'])
         else:
-            plt.legend(['loss'])
+            plt.legend(['Loss'])
         plt.grid(True)
         plt.savefig(file_path)
         plt.close()
 
     def plot_accuracy(self, file_name: str,
-                      accuracy: list[float], val_accuracy: Optional[list[float]] = None):
+                      accuracy: list[float], 
+                      val_accuracy: Optional[list[float]] = None):
 
         file_path = self.plots_dir.joinpath(file_name)
         plt.figure(figsize=(10, 5))
@@ -51,67 +48,111 @@ class Plotter:
         if val_accuracy is not None:
             plt.plot(val_accuracy)
         plt.xlabel('Epoch [n]')
-        plt.ylabel('Acuracy [-]')
-        plt.title('Accuracy history during training.')
+        plt.ylabel('Accuracy [-]')
+        plt.title('Accuracy progression during training')
         plt.tight_layout()
         if val_accuracy is not None:
-            plt.legend(['accuracy', 'accuracy - validation'])
+            plt.legend(['Accuracy', 'Accuracy - validation'])
         else:
-            plt.legend(['accuracy'])
+            plt.legend(['Accuracy'])
         plt.grid(True)
         plt.savefig(file_path)
         plt.close()
-
-    def plot_miou(self, file_name: str,
-                      miou: list[float], val_miou: Optional[list[float]] = None):
-
-        file_path = self.plots_dir.joinpath(file_name)
-        plt.figure(figsize=(10, 5))
-        plt.plot(miou)
-        if val_miou is not None:
-            plt.plot(val_miou)
-        plt.xlabel('Epoch [n]')
-        plt.ylabel('mIoU [-]')
-        plt.title('mIoU history during training')
-        plt.tight_layout()
-        if val_miou is not None:
-            plt.legend(['mIoU', 'mIoU - validation'])
-        else:
-            plt.legend(['mIoU'])
-        plt.grid(True)
-        plt.savefig(file_path)
-        plt.close()
-
 
     def cnf_matrix(self, file_name: str,
-                   target: np.ndarray, prediction: np.ndarray):
+                        target: np.ndarray, 
+                        prediction: np.ndarray,
+                        num_classes: Optional[int] = None,
+                        class_names: Optional[list] = None):  
+            
+            file_path = self.plots_dir.joinpath(file_name)
+
+            cm = confusion_matrix(y_true=target, y_pred=prediction)
+            accuracy = accuracy_score(y_true=target, y_pred=prediction)
+            if class_names is None:
+                n_classes = num_classes if num_classes is not None else cm.shape[0]
+                class_names = [f"Class_{i}" for i in range(n_classes)]
+
+            plt.figure(figsize=(8, 6)) 
+            annot_kws = {"fontweight": 'bold'}
+            sns.heatmap(cm, 
+                        annot=True, 
+                        annot_kws=annot_kws,      
+                        fmt='d',
+                        cmap='Purples',
+                        xticklabels=class_names,
+                        yticklabels=class_names,
+                        cbar=True,
+                        linewidths=0.4,
+                        linecolor='black') 
+
+            plt.title(f"Correlation matrix\nAccuracy: {accuracy:.2%}")
+            plt.ylabel("Actual classes")
+            plt.xlabel("Estimated classes")
+
+            plt.xticks(rotation=45, ha='right')
+            plt.yticks(rotation=0)
+            plt.tight_layout()
+            plt.savefig(file_path)
+            plt.close()
+
+    def cnf_matrix_analysis(self, file_name: str,
+                target: np.ndarray, 
+                prediction: np.ndarray,
+                num_classes: Optional[int] = None,
+                class_names: Optional[list] = None):
+    
         file_path = self.plots_dir.joinpath(file_name)
 
-        accuracy = accuracy_score(y_true=target, y_pred=prediction)
         cm = confusion_matrix(y_true=target, y_pred=prediction)
+        accuracy = accuracy_score(y_true=target, y_pred=prediction)
 
-        # Print accuracy
-        print(f"Accuracy: {accuracy:.4f}")
+        if class_names is None:
+            n_classes = num_classes if num_classes is not None else cm.shape[0]
+            class_names = [f"Class_{i}" for i in range(n_classes)]
 
-        # Visualize confusion matrix using heatmap
-        plt.figure(figsize=(8, 6))
-        plt.imshow(cm, cmap='Blues')
-        plt.colorbar()
-        plt.title("Confusion matrix")
-        plt.ylabel("Target classes")
-        plt.xlabel("Estimated classes")
+        row_sums = cm.sum(axis=1)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            cm_perc = cm / row_sums[:, np.newaxis]
+        cm_perc = np.nan_to_num(cm_perc)
 
-        class_names = [f"Class_{i}" for i in range(self.class_num)]
-        plt.xticks(range(len(class_names)), class_names, rotation=45, ha='right')
-        plt.yticks(range(len(class_names)), class_names)
+        annot_labels = np.empty_like(cm).astype(object)
+        nrows, ncols = cm.shape
+        for i in range(nrows):
+            for j in range(ncols):
+                count = cm[i, j]
+                percent = cm_perc[i, j]
+                
+                if count == 0:
+                    annot_labels[i, j] = ""
+                else:
 
-        for i in range(len(cm)):
-            for j in range(len(cm[0])):
-                plt.text(j, i, cm[i, j], ha='center', va='center', color='white' if cm[i, j] > cm.mean() else 'black')
+                    annot_labels[i, j] = f"{count}\n({percent:.1%})"
+
+        sns.set_context("notebook", font_scale=1.1)
+        plt.figure(figsize=(10, 8)) 
+
+        ax = sns.heatmap(cm, 
+                        annot=annot_labels, 
+                        fmt='', 
+                        cmap='Purples', 
+                        xticklabels=class_names, 
+                        yticklabels=class_names,
+                        cbar_kws={'label': 'Liczba próbek'},
+                        linewidths=0.8,
+                        linecolor='black') 
+
+
+        plt.title(f"Correlation matrix\n Accuracy: {accuracy:.2%}", fontsize=14, pad=20, weight='bold')
+        plt.ylabel("Actual classes", fontsize=12, labelpad=10)
+        plt.xlabel("Estimated classes", fontsize=12, labelpad=10)
+        
+        plt.xticks(rotation=45, ha='right')
+        plt.yticks(rotation=0)
 
         plt.tight_layout()
 
-        plt.savefig(file_path)
+        plt.savefig(file_path, dpi=300, bbox_inches='tight')
         plt.close()
 
     def prc_curve(self, file_name: str,
@@ -125,13 +166,13 @@ class Plotter:
 
         for i in range(self.class_num):
 
-            legend.append(f'Curve of Class_{i}')
+            legend.append(f'Curve for: Class_{i}')
             precision, recall, thresholds = precision_recall_curve(target == i, pred_prob[:, i])
             plt.plot(recall, precision, label=legend[i])
 
         plt.xlabel('Recall')
         plt.legend()
-        plt.title(f'Precision recall curve')
+        plt.title(f'Curve precision and recall')
         plt.ylabel('Precision')
         plt.grid(True)
 
@@ -165,8 +206,6 @@ class Plotter:
         plt.ylabel('True Positive Rate')
         plt.title('Multi-Class ROC Curve')
         plt.legend(loc="lower right")
-
-
         plt.savefig(file_path)
         plt.close()
 
