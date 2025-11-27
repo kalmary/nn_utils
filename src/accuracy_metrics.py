@@ -30,7 +30,41 @@ def calculate_accuracy(outputs, labels):
     accuracy = correct / total
     return accuracy
 
-# TODO add weighted acc based on precalculated weight
+def calculate_weighted_accuracy(outputs, labels, weights):
+    """
+    Calculate weighted accuracy where each class has a different weight.
+    Only considers classes that are present in the labels (automatic via indexing).
+    
+    Args:
+        outputs: Model predictions (batch_size x num_classes)
+        labels: True labels (batch_size)
+        weights: Class weights tensor (num_classes) or (1 x num_classes)
+    
+    Returns:
+        Weighted accuracy as a float
+    """
+    predicted = torch.argmax(outputs, dim=1)
+    correct = (predicted == labels).float()
+    
+    # Normalize weights to [0, 1] range
+    weights = weights.squeeze()
+    weights_normalized = (weights - weights.min()) / (weights.max() - weights.min() + 1e-8)
+    
+    # Get weights for each sample based on their true label
+    # This automatically filters to only present labels
+    sample_weights = weights_normalized[labels]
+    
+    # Calculate weighted accuracy
+    weighted_correct = (correct * sample_weights).sum().item()
+    total_weights = sample_weights.sum().item()
+    
+    # Avoid division by zero
+    if total_weights == 0:
+        return 0.0
+    
+    accuracy = weighted_correct / total_weights
+    return accuracy
+
 
 def get_dataset_len(loader, verbose = False):
     total = 0
