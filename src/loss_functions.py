@@ -1,3 +1,7 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 class IoULoss(nn.Module):
     def __init__(self, num_classes, smooth=1e-6, reduction='mean', ignore_index=None):
         super(IoULoss, self).__init__()
@@ -105,84 +109,6 @@ class DiceLoss(nn.Module):
             return loss.sum()
         else: # 'none' or 'elementwise'
             return loss
-
-class FocalLoss_CLASS(nn.Module):
-    """
-    Focal Loss for multi-class classification.
-    
-    Focal Loss = -alpha * (1 - p_t)^gamma * log(p_t)
-    
-    where:
-    - p_t is the probability for the true class
-    - alpha is the class balance weight (optional)
-    - gamma is the focusing parameter (typically 2.0)
-    
-    Args:
-        alpha (float or Tensor): Class balance weight. If float, applies the same weight
-                                 to all classes. If Tensor, must have length equal to
-                                 the number of classes.
-        gamma (float): Focusing parameter. Higher values focus more on hard examples.
-                       Default is 2.0.
-        reduction (str): 'none' | 'mean' | 'sum'. Default is 'mean'.
-    """
-    
-    def __init__(self, alpha=None, gamma=2.0, reduction='mean'):
-        super(FocalLoss_CLASS, self).__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-        self.reduction = reduction
-        
-        # If alpha is a list or tensor, convert to tensor
-        if isinstance(alpha, (list, tuple)):
-            self.alpha = torch.tensor(alpha, dtype=torch.float32)
-    
-    def forward(self, logits, targets):
-        """
-        Args:
-            logits: Tensor of shape (batch_size, num_classes) - raw logits
-            targets: Tensor of shape (batch_size,) or (batch_size, 1) - class indices
-        
-        Returns:
-            loss: Scalar tensor (if reduction='mean' or 'sum') or tensor (batch_size,)
-        """
-        
-        # Ensure targets has dimensions (batch_size,)
-        if targets.dim() == 2:
-            targets = targets.squeeze(1)
-        
-        # Calculate cross entropy loss without reduction
-        ce_loss = F.cross_entropy(logits, targets, reduction='none')
-        
-        # Calculate probabilities for the focal weight
-        probs = F.softmax(logits, dim=1)
-        p_t = probs.gather(1, targets.unsqueeze(1)).squeeze(1)
-        
-        # Focal weight: (1 - p_t)^gamma
-        focal_weight = (1 - p_t) ** self.gamma
-        
-        # Focal Loss: focal_weight * ce_loss
-        focal_loss = focal_weight * ce_loss
-        
-        # Apply alpha weights if provided
-        if self.alpha is not None:
-            if isinstance(self.alpha, torch.Tensor):
-                # Ensure alpha is on the same device as logits
-                if self.alpha.device != logits.device:
-                    self.alpha = self.alpha.to(logits.device)
-                
-                # Select appropriate alpha weights for each example
-                alpha_t = self.alpha[targets]
-                focal_loss = alpha_t * focal_loss
-            else:
-                focal_loss = self.alpha * focal_loss
-        
-        # Apply reduction
-        if self.reduction == 'mean':
-            return focal_loss.mean()
-        elif self.reduction == 'sum':
-            return focal_loss.sum()
-        else:  # 'none'
-            return focal_loss
         
 
 class FocalLoss(nn.Module):

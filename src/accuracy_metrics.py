@@ -83,36 +83,6 @@ def get_dataset_len(loader, verbose = False):
 
     return total
 
-def calculate_class_weights_classification(loader, num_classes, total=None, device='cpu'):
-    class_sample_counts = Counter()
-    total_samples = 0
-
-    print("\nClass weights computation for classification...")
-    progressbar = tqdm(enumerate(loader), desc='Getting class weights from dataset', total=total)
-
-    for i, batch in progressbar:
-
-        targets_np = batch.y.cpu().numpy()
-        class_sample_counts.update(targets_np)  # No need to flatten, targets are already sample-wise
-
-        total_samples += targets_np.shape[0]  # targets_np.size also works, but shape[0] is more explicit for samples
-
-    weights = torch.zeros(num_classes, device=device)
-    for class_idx in range(num_classes):
-        count = class_sample_counts.get(class_idx, 0)  # Use .get to handle classes not present in the batch
-
-        if count == 0:
-            print(
-                f"Warning: Class {class_idx} has no samples in the dataset. Its weight will be 0 before normalization.")
-
-        else:
-            weights[class_idx] = total_samples / (count * num_classes)
-
-    if weights.sum() == 0:
-        raise ValueError("All class counts are zero, cannot compute weights. Check your dataset and num_classes.")
-    return weights / weights.sum() * num_classes
-
-
 def calculate_class_weights(loader: torch.utils.data.DataLoader,
                             num_classes,
                             total: Optional[int] = None, 
