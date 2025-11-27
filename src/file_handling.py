@@ -2,6 +2,7 @@ import json
 import pathlib as pth
 from typing import Union, Optional
 import torch
+import torch.nn as nn
 import ast
 
 
@@ -74,7 +75,23 @@ def save_model(path: Union[str, pth.Path],
         
     return final_path
 
+def load_model(file_path: Union[str, pth.Path],
+               model: nn.Module,
+               device: Optional[torch.device] = None) -> nn.Module:
+ 
+    file_path = pth.Path(file_path)
+    if not file_path.exists():
+        raise ValueError(f'Path {file_path} does not exist.')
 
+    if device is not None:
+        model_state_dict = torch.load(file_path, map_location=device)
+    else:
+        model_state_dict = torch.load(file_path, map_location=device)
+    
+    model.load_state_dict(model_state_dict)
+    model.to(device)
+
+    return model
 
 def save2json(data: dict, path: Union[str, pth.Path]) -> None:
     """
