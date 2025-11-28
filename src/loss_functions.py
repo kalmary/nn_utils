@@ -2,118 +2,197 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
+def _standardize_inputs(inputs, targets, num_classes=None):
+    """
+    Standardize inputs to (B*N, C) and targets to (B*N) for any dimensionality.
+    
+    Handles:
+    - Classification: (B, C) -> targets (B,)
+    - Point clouds: (B, C, N) or (B, N, C) -> targets (B, N)
+    - Images: (B, C, H, W) -> targets (B, H, W)
+    - Videos: (B, C, T, H, W) -> targets (B, T, H, W)
+    
+    Args:
+        inputs: Logits tensor
+        targets: Ground truth tensor
+        num_classes: Number of classes (optional, will be inferred if None)
+    
+    Returns:
+        logits: (B*N, C) where N is product of all spatial dimensions
+        targets: (B*N,)
+        num_classes: Inferred or provided number of classes
+    """
+    # Infer num_classes if not provided
+    if num_classes is None:
+        if inputs.dim() == 2:
+            num_classes = inputs.shape[1]
+        else:
+            # Check if dim=1 looks like channels (typically smaller than spatial dims)
+            num_classes = inputs.shape[1] if inputs.shape[1] < inputs.shape[-1] or inputs.shape[1] == inputs.shape[-1] else inputs.shape[-1]
+    
+    if inputs.dim() == 2:
+        # Regular classification: (B, C)
+        logits = inputs
+        
+    elif inputs.dim() >= 3:
+        # Check if dim=1 is the channel dimension
+        if inputs.shape[1] == num_classes:
+            # Channel-first format: (B, C, N) or (B, C, H, W) or (B, C, T, H, W)
+            # Move channel to last: (B, ..., C)
+            dims_order = [0] + list(range(2, inputs.dim())) + [1]
+            logits = inputs.permute(*dims_order)
+        else:
+            # Already channel-last: (B, N, C) or (B, H, W, C) or (B, T, H, W, C)
+            logits = inputs
+    else:
+        raise ValueError(f"Expected input with at least 2 dimensions, got {inputs.dim()}D")
+    
+    # Flatten to (B*N, C)
+    logits = logits.contiguous().view(-1, num_classes)
+    targets = targets.contiguous().view(-1)
+    
+    return logits, targets, num_classes
+
+
 class IoULoss(nn.Module):
     def __init__(self, num_classes, smooth=1e-6, reduction='mean', ignore_index=None):
+        """
+        IoU Loss for any type of segmentation task.
+        
+        Args:
+            num_classes: Number of classes
+            smooth: Smoothing factor to avoid division by zero
+            reduction: 'mean', 'sum', or 'none'
+            ignore_index: Class index to ignore in loss calculation
+        
+        Input shapes supported:
+            - Classification: (B, C) with targets (B,)
+            - Point clouds: (B, C, N) or (B, N, C) with targets (B, N)
+            - Images: (B, C, H, W) with targets (B, H, W)
+            - Videos: (B, C, T, H, W) with targets (B, T, H, W)
+        """
         super(IoULoss, self).__init__()
         self.num_classes = num_classes
-        self.smooth = smooth # A small value to avoid division by zero
+        self.smooth = smooth
         self.reduction = reduction
         self.ignore_index = ignore_index
 
     def forward(self, inputs, targets):
-        # inputs: (BatchSize, NumClasses, NumPoints) - raw logits
-        # targets: (BatchSize, NumPoints) - class IDs
-
+        # Standardize input shape to (B*N, C)
+        inputs_flat, targets_flat, num_classes = _standardize_inputs(inputs, targets, self.num_classes)
+        
         # Apply softmax to get probabilities
-        # Transpose inputs to (BatchSize, NumPoints, NumClasses) for one-hot
-        inputs = F.softmax(inputs, dim=1).permute(0, 2, 1) # (B, N, C)
-
-        # Reshape for easier calculation
-        inputs = inputs.contiguous().view(-1, self.num_classes) # (B*N, C)
-        targets = targets.contiguous().view(-1) # (B*N)
-
+        probs = F.softmax(inputs_flat, dim=1)
+        
         # Handle ignore_index
         if self.ignore_index is not None:
-            mask = targets != self.ignore_index
-            inputs = inputs[mask]
-            targets = targets[mask]
-            if inputs.numel() == 0: # If all points are ignored
-                return torch.tensor(0.0, device=inputs.device)
+            mask = targets_flat != self.ignore_index
+            probs = probs[mask]
+            targets_flat = targets_flat[mask]
+            if probs.numel() == 0:
+                return torch.tensor(0.0, device=inputs.device, requires_grad=True)
 
         # Convert targets to one-hot encoding
-        # (B*N) -> (B*N, NumClasses)
-        targets_one_hot = F.one_hot(targets, num_classes=self.num_classes).float()
+        targets_one_hot = F.one_hot(targets_flat, num_classes=num_classes).float()
 
-        # Intersection: (B*N, C) * (B*N, C) -> (B*N, C) then sum over B*N -> (C)
-        intersection = (inputs * targets_one_hot).sum(dim=0) # Sum over all points for each class
-
-        # Union: (B*N, C) + (B*N, C) - (B*N, C) -> (B*N, C) then sum over B*N -> (C)
-        union = inputs.sum(dim=0) + targets_one_hot.sum(dim=0) - intersection
+        # Calculate intersection and union per class
+        intersection = (probs * targets_one_hot).sum(dim=0)
+        union = probs.sum(dim=0) + targets_one_hot.sum(dim=0) - intersection
 
         # IoU for each class
         iou = (intersection + self.smooth) / (union + self.smooth)
-
-        # IoU Loss: 1 - IoU
         loss = 1.0 - iou
 
         if self.reduction == 'mean':
-            return loss.mean() # Average over all classes
+            return loss.mean()
         elif self.reduction == 'sum':
             return loss.sum()
-        else: # 'none' or 'elementwise'
+        else:
             return loss
 
+
 class DiceLoss(nn.Module):
-    def __init__(self, num_classes, smooth=1e-6, class_weights = None, reduction='mean', ignore_index=None):
+    def __init__(self, num_classes, smooth=1e-6, class_weights=None, reduction='mean', ignore_index=None):
+        """
+        Dice Loss for any type of segmentation task.
+        
+        Args:
+            num_classes: Number of classes
+            smooth: Smoothing factor to avoid division by zero
+            class_weights: Tensor of shape (num_classes,) for class weighting
+            reduction: 'mean', 'sum', or 'none'
+            ignore_index: Class index to ignore in loss calculation
+        
+        Input shapes supported:
+            - Classification: (B, C) with targets (B,)
+            - Point clouds: (B, C, N) or (B, N, C) with targets (B, N)
+            - Images: (B, C, H, W) with targets (B, H, W)
+            - Videos: (B, C, T, H, W) with targets (B, T, H, W)
+        """
         super(DiceLoss, self).__init__()
         self.num_classes = num_classes
-        self.smooth = smooth # A small value to avoid division by zero
+        self.smooth = smooth
         self.class_weights = class_weights
         self.reduction = reduction
         self.ignore_index = ignore_index
 
     def forward(self, inputs, targets):
-        # inputs: (BatchSize, NumClasses, NumPoints) - raw logits
-        # targets: (BatchSize, NumPoints) - class IDs
-
+        # Standardize input shape to (B*N, C)
+        inputs_flat, targets_flat, num_classes = _standardize_inputs(inputs, targets, self.num_classes)
+        
         # Apply softmax to get probabilities
-        # Transpose inputs to (BatchSize, NumPoints, NumClasses) for one-hot
-        inputs = F.softmax(inputs, dim=1).permute(0, 2, 1) # (B, N, C)
-
-        # Reshape for easier calculation
-        inputs = inputs.contiguous().view(-1, self.num_classes) # (B*N, C)
-        targets = targets.contiguous().view(-1) # (B*N)
-
+        probs = F.softmax(inputs_flat, dim=1)
+        
         # Handle ignore_index
         if self.ignore_index is not None:
-            mask = targets != self.ignore_index
-            inputs = inputs[mask]
-            targets = targets[mask]
-            if inputs.numel() == 0: # If all points are ignored
-                return torch.tensor(0.0, device=inputs.device)
+            mask = targets_flat != self.ignore_index
+            probs = probs[mask]
+            targets_flat = targets_flat[mask]
+            if probs.numel() == 0:
+                return torch.tensor(0.0, device=inputs.device, requires_grad=True)
 
         # Convert targets to one-hot encoding
-        # (B*N) -> (B*N, NumClasses)
-        targets_one_hot = F.one_hot(targets, num_classes=self.num_classes).float()
+        targets_one_hot = F.one_hot(targets_flat, num_classes=num_classes).float()
 
-        # Intersection: (B*N, C) * (B*N, C) -> (B*N, C) then sum over B*N -> (C)
-        intersection = (inputs * targets_one_hot).sum(dim=0) # Sum over all points for each class
-
-        # Sum of elements in prediction and target
-        # Sum over B*N for each class
-        sum_pred = inputs.sum(dim=0)
+        # Calculate intersection and sums per class
+        intersection = (probs * targets_one_hot).sum(dim=0)
+        sum_pred = probs.sum(dim=0)
         sum_target = targets_one_hot.sum(dim=0)
 
         # Dice coefficient for each class
         dice = (2. * intersection + self.smooth) / (sum_pred + sum_target + self.smooth)
-
-        # Dice Loss: 1 - Dice
         loss = 1.0 - dice
 
+        # Apply class weights
         if self.class_weights is not None:
             loss = loss * self.class_weights.to(loss.device)
 
         if self.reduction == 'mean':
-            return loss.mean() # Average over all classes
+            return loss.mean()
         elif self.reduction == 'sum':
             return loss.sum()
-        else: # 'none' or 'elementwise'
+        else:
             return loss
-        
+
 
 class FocalLoss(nn.Module):
-    def __init__(self, alpha=None, gamma=2.0, reduction='mean', ignore_index=None, device = torch.device('cpu')):
-
+    def __init__(self, alpha=None, gamma=2.0, reduction='mean', ignore_index=None):
+        """
+        Focal Loss for any type of classification/segmentation task.
+        
+        Args:
+            alpha: Class weights tensor of shape (num_classes,) or None
+            gamma: Focusing parameter (default: 2.0)
+            reduction: 'mean', 'sum', or 'none'
+            ignore_index: Class index to ignore in loss calculation
+        
+        Input shapes supported:
+            - Classification: (B, C) with targets (B,)
+            - Point clouds: (B, C, N) or (B, N, C) with targets (B, N)
+            - Images: (B, C, H, W) with targets (B, H, W)
+            - Videos: (B, C, T, H, W) with targets (B, T, H, W)
+        """
         super(FocalLoss, self).__init__()
         self.alpha = alpha
         self.gamma = gamma
@@ -121,150 +200,116 @@ class FocalLoss(nn.Module):
         self.ignore_index = ignore_index
 
     def forward(self, inputs, targets):
-        # inputs: (BatchSize, NumClasses, NumPoints) - raw logits
-        # targets: (BatchSize, NumPoints) - class IDs
-
+        # Standardize input shape to (B*N, C)
+        inputs_flat, targets_flat, num_classes = _standardize_inputs(inputs, targets)
+        
+        # Handle ignore_index
         if self.ignore_index is not None:
-            # Create a mask for valid (non-ignored) points
-            mask = (targets != self.ignore_index)
-            # Apply mask to targets to get only relevant labels
-            targets_masked = targets[mask]
-            # Apply mask to inputs. This needs careful reshaping.
-            # outputs needs to be (B*N, C) before masking.
-            inputs_reshaped = inputs.permute(0, 2, 1).contiguous().view(-1, inputs.shape[1])
-            inputs_masked = inputs_reshaped[mask]
+            mask = targets_flat != self.ignore_index
+            inputs_flat = inputs_flat[mask]
+            targets_flat = targets_flat[mask]
+            if inputs_flat.numel() == 0:
+                return torch.tensor(0.0, device=inputs.device, requires_grad=True)
 
-            if inputs_masked.numel() == 0:
-                return torch.tensor(0.0, device=inputs.device)
-        else:
-            inputs_reshaped = inputs.permute(0, 2, 1).contiguous().view(-1, inputs.shape[1])
-            inputs_masked = inputs_reshaped
-            targets_masked = targets.contiguous().view(-1)
+        # Calculate cross-entropy loss
+        ce_loss = F.cross_entropy(inputs_flat, targets_flat, reduction='none')
 
-        # Step 1: Calculate Cross-Entropy Loss
-        # F.cross_entropy expects inputs as (N, C) and targets as (N)
-        ce_loss = F.cross_entropy(inputs_masked, targets_masked, reduction='none')
+        # Calculate pt (probability of true class)
+        pt = torch.exp(-ce_loss)
 
-        # Step 2: Calculate pt (probability of the true class)
-        # Apply softmax to logits to get probabilities
-        # Then use gather to pick probabilities corresponding to the true class
-        pt = torch.exp(-ce_loss) # Alternatively: pt = F.softmax(inputs_masked, dim=1).gather(1, targets_masked.view(-1, 1))
+        # Calculate focal term
+        focal_term = (1 - pt) ** self.gamma
 
-        # Step 3: Calculate the modulating factor (1 - pt)^gamma
-        focal_term = (1 - pt)**self.gamma
-
-        # Step 4: Apply alpha weighting
+        # Apply alpha weighting
         if self.alpha is not None:
-            if self.alpha.device != inputs.device: # Ensure alpha is on the correct device
+            if self.alpha.device != inputs.device:
                 self.alpha = self.alpha.to(inputs.device)
+            alpha_per_sample = self.alpha.gather(0, targets_flat)
+            focal_term = alpha_per_sample * focal_term
 
-            # Get alpha for each target class
-            alpha_per_sample = self.alpha.gather(0, targets_masked)
-            weighted_focal_term = alpha_per_sample * focal_term
-        else:
-            weighted_focal_term = focal_term
-
-        # Step 5: Combine everything to get Focal Loss
-        loss = weighted_focal_term * ce_loss
+        # Combine to get focal loss
+        loss = focal_term * ce_loss
 
         if self.reduction == 'mean':
             return loss.mean()
         elif self.reduction == 'sum':
             return loss.sum()
-        else: # 'none'
+        else:
             return loss
 
 
 class LabelSmoothingFocalLoss(nn.Module):
-    """
-    Focal Loss with Label Smoothing for imbalanced classification.
-    
-    Combines:
-    - Focal Loss: Focuses on hard examples by down-weighting easy ones
-    - Label Smoothing: Prevents overconfidence and improves generalization
-    - Class Weights: Handles class imbalance
-    
-    Args:
-        alpha: Class weights tensor of shape (num_classes,) or None
-        gamma: Focusing parameter for focal loss (default: 2.0)
-               Higher gamma = more focus on hard examples
-        smoothing: Label smoothing parameter (default: 0.1)
-                   smoothing=0.0 means no smoothing
-        reduction: 'mean', 'sum', or 'none'
-    
-    Example:
-        >>> # For 10 classes with class weights
-        >>> weights = torch.tensor([1.0, 1.5, 2.0, ...])  # 10 values
-        >>> criterion = LabelSmoothingFocalLoss(alpha=weights, gamma=2.0, smoothing=0.1)
-        >>> 
-        >>> # During training
-        >>> outputs = model(inputs)  # Shape: (batch_size, num_classes)
-        >>> loss = criterion(outputs, targets)  # targets shape: (batch_size,)
-    """
-    
-    def __init__(self, alpha=None, gamma=2.0, smoothing=0.1, reduction='mean'):
+    def __init__(self, alpha=None, gamma=2.0, smoothing=0.1, reduction='mean', ignore_index=None):
+        """
+        Focal Loss with Label Smoothing for any type of classification/segmentation task.
+        
+        Args:
+            alpha: Class weights tensor of shape (num_classes,) or None
+            gamma: Focusing parameter (default: 2.0)
+            smoothing: Label smoothing parameter (default: 0.1)
+            reduction: 'mean', 'sum', or 'none'
+            ignore_index: Class index to ignore in loss calculation
+        
+        Input shapes supported:
+            - Classification: (B, C) with targets (B,)
+            - Point clouds: (B, C, N) or (B, N, C) with targets (B, N)
+            - Images: (B, C, H, W) with targets (B, H, W)
+            - Videos: (B, C, T, H, W) with targets (B, T, H, W)
+        """
         super(LabelSmoothingFocalLoss, self).__init__()
         
         self.alpha = alpha
         self.gamma = gamma
         self.smoothing = smoothing
         self.reduction = reduction
+        self.ignore_index = ignore_index
         
-        # Validate parameters
         assert 0.0 <= smoothing < 1.0, "Smoothing must be in [0.0, 1.0)"
         assert gamma >= 0.0, "Gamma must be non-negative"
-        assert reduction in ['mean', 'sum', 'none'], "Invalid reduction mode"
     
     def forward(self, inputs, targets):
-        """
-        Args:
-            inputs: Model predictions of shape (batch_size, num_classes) - logits (before softmax)
-            targets: Ground truth labels of shape (batch_size,) - class indices
+        # Standardize input shape to (B*N, C)
+        inputs_flat, targets_flat, num_classes = _standardize_inputs(inputs, targets)
         
-        Returns:
-            Loss value (scalar if reduction='mean' or 'sum', tensor if 'none')
-        """
-        batch_size = inputs.size(0)
-        num_classes = inputs.size(1)
+        # Handle ignore_index
+        if self.ignore_index is not None:
+            mask = targets_flat != self.ignore_index
+            inputs_flat = inputs_flat[mask]
+            targets_flat = targets_flat[mask]
+            if inputs_flat.numel() == 0:
+                return torch.tensor(0.0, device=inputs.device, requires_grad=True)
         
-        # Get log probabilities
-        log_probs = F.log_softmax(inputs, dim=-1)
+        # Get log probabilities and probabilities
+        log_probs = F.log_softmax(inputs_flat, dim=-1)
         probs = torch.exp(log_probs)
         
         # Create one-hot encoded targets
-        targets_one_hot = F.one_hot(targets, num_classes=num_classes).float()
+        targets_one_hot = F.one_hot(targets_flat, num_classes=num_classes).float()
         
         # Apply label smoothing
         if self.smoothing > 0:
-            # Smooth labels: (1 - smoothing) for true class, smoothing/(num_classes-1) for others
             confidence = 1.0 - self.smoothing
             smooth_value = self.smoothing / (num_classes - 1)
-            
             targets_smooth = targets_one_hot * confidence + smooth_value * (1 - targets_one_hot)
         else:
             targets_smooth = targets_one_hot
         
-        # Calculate focal weight: (1 - p_t)^gamma
-        # For each sample, get the probability of the true class
+        # Calculate focal weight
         focal_weight = (1 - probs) ** self.gamma
         
         # Calculate focal loss with smooth labels
-        # Loss = -alpha * (1-p)^gamma * sum(smooth_label * log(p))
         loss = -targets_smooth * log_probs * focal_weight
         
-        # Apply class weights (alpha)
+        # Apply class weights
         if self.alpha is not None:
             if self.alpha.device != inputs.device:
                 self.alpha = self.alpha.to(inputs.device)
-            
-            # Expand alpha to match batch size
-            alpha_t = self.alpha.unsqueeze(0).expand(batch_size, -1)
+            alpha_t = self.alpha.unsqueeze(0).expand(inputs_flat.size(0), -1)
             loss = loss * alpha_t
         
         # Sum over classes
         loss = loss.sum(dim=-1)
         
-        # Apply reduction
         if self.reduction == 'mean':
             return loss.mean()
         elif self.reduction == 'sum':
