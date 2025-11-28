@@ -1,4 +1,4 @@
-![BANNER](url-baner)
+![BANNER](https://github.com/kalmary/nn_utils/blob/main/img/BANNER_NN_UTILS.png)
 
 
 ---
@@ -7,6 +7,12 @@
 
 ---
 
+### Code example:
+
+
+![CODE](https://github.com/kalmary/nn_utils/blob/main/img/code_example.png)
+
+---
 
 ### Instalation: 
 
@@ -16,7 +22,11 @@ Clone the repository to your local machine:
 git clone [https://github.com/kalmary/nn_utils.git]
 cd nn_utils
 ```
+---
+
 ### File structure:
+
+---
 
 ### Implemented functions:
 
