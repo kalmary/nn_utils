@@ -21,9 +21,9 @@ cd nn_utils
 
 ### Code example:
 
-| CODE | OUTPUT |
+| CODE | OUTPUT (TESTOWENARAZIE) |
 | :---: | :---: |
-| ![CODE](https://github.com/kalmary/nn_utils/blob/main/img/code_example.png) | ![CODE1](https://github.com/kalmary/nn_utils/blob/main/img/cnf.png) !
+| ![CODE](https://github.com/kalmary/nn_utils/blob/main/img/code_example.png) | ![CODE1](https://github.com/kalmary/nn_utils/blob/main/img/obraz.png) |
 
 
 
