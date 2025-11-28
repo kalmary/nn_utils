@@ -2,15 +2,9 @@
 ![Language](https://img.shields.io/badge/Language-Python-green) ![OS](https://img.shields.io/badge/OS-Linux,Windows-yellow)
 
 ---
+### Overview
 
-#### **nn_utils** is a simple, modular collection of utilities designed to simplify the process of building, debugging, and experimenting with neural networks in Python.
-
----
-
-### Code example:
-
-
-![CODE](https://github.com/kalmary/nn_utils/blob/main/img/code_example.png)
+**nn_utils** is a simple, modular collection of utilities designed to simplify the process of building, debugging, and experimenting with neural networks in Python.
 
 ---
 
@@ -22,7 +16,20 @@ Clone the repository to your local machine:
 git clone [https://github.com/kalmary/nn_utils.git]
 cd nn_utils
 ```
+
 ---
+
+### Code example:
+
+| CODE | OUTPUT |
+| :---: | :---: |
+| ![CODE](https://github.com/kalmary/nn_utils/blob/main/img/code_example.png) | ![CODE1](https://github.com/kalmary/nn_utils/blob/main/img/cnf.png) !
+
+
+
+---
+
+
 
 ### File structure:
 
