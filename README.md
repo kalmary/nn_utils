@@ -1,5 +1,5 @@
 ![BANNER](https://github.com/kalmary/nn_utils/blob/main/img/BANNER_NN_UTILS.png)
-
+![Language](https://img.shields.io/badge/Language-Python-green) ![OS](https://img.shields.io/badge/OS-Linux,Windows-yellow)
 
 ---
 
@@ -25,6 +25,23 @@ cd nn_utils
 ---
 
 ### File structure:
+
+```
+nn_utils
+├── img
+├── src
+│   ├── accuracy_metrics.py
+│   ├── evaluation_plot_tools.py
+│   ├── file_handling.py
+│   ├── loss_functions.py
+│   └── training_callbacks.py
+├── .gitattributes
+├── .gitignore
+├── Makefile
+├── README.md
+└── __init__.py
+```
+
 
 ---
 
