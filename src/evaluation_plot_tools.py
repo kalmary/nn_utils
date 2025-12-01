@@ -10,7 +10,7 @@ import seaborn as sns
 import pathlib as pth
 from typing import Union, Optional
 
-
+# TODO reflect plot_accuracy/ plot_loss - > plot_metric_hist change in documentation
 
 
 class Plotter:
@@ -18,43 +18,26 @@ class Plotter:
         self.class_num = class_num
         self.plots_dir = pth.Path(plots_dir)
 
-    def plot_loss(self, file_name: str,
-                  loss: list[float], val_loss: Optional[list[float]] = None):
+    def plot_metric_hist(self,
+                         file_name: str,
+                         metric: list[float],
+                         val_metric: Optional[list[float]] = None):
 
         file_path = self.plots_dir.joinpath(file_name)
-        plt.figure(figsize=(10, 5))
-        plt.plot(loss)
-        if val_loss is not None:
-            plt.plot(val_loss)
-        plt.xlabel('Epoch [n]')
-        plt.ylabel('Loss [-]')
-        plt.title('Loss progression during training')
-        plt.tight_layout()
-        if val_loss is not None:
-            plt.legend(['Loss', 'Loss - validation'])
-        else:
-            plt.legend(['Loss'])
-        plt.grid(True)
-        plt.savefig(file_path)
-        plt.close()
+        metric_name = file_name.name.split('_')[0]
 
-    def plot_accuracy(self, file_name: str,
-                      accuracy: list[float], 
-                      val_accuracy: Optional[list[float]] = None):
-
-        file_path = self.plots_dir.joinpath(file_name)
         plt.figure(figsize=(10, 5))
-        plt.plot(accuracy)
-        if val_accuracy is not None:
-            plt.plot(val_accuracy)
+        plt.plot(metric)
+        if val_metric is not None:
+            plt.plot(val_metric)
         plt.xlabel('Epoch [n]')
-        plt.ylabel('Accuracy [-]')
-        plt.title('Accuracy progression during training')
+        plt.ylabel(f'{metric_name} [-]')
+        plt.title(f'{metric_name} progression during training')
         plt.tight_layout()
-        if val_accuracy is not None:
-            plt.legend(['Accuracy', 'Accuracy - validation'])
+        if val_metric is not None:
+            plt.legend([f'{metric_name}', f'{metric_name} - validation'])
         else:
-            plt.legend(['Accuracy'])
+            plt.legend([f'{metric_name}'])
         plt.grid(True)
         plt.savefig(file_path)
         plt.close()
