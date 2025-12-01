@@ -10,8 +10,6 @@ import seaborn as sns
 import pathlib as pth
 from typing import Union, Optional
 
-# TODO reflect plot_accuracy/ plot_loss - > plot_metric_hist change in documentation
-
 
 class Plotter:
     def __init__(self, class_num: int, plots_dir: Union[str, pth.Path]):
@@ -197,7 +195,8 @@ class Plotter:
         plt.close()
 
 def ClassificationReport(file_path: Union[str, pth.Path],
-                         pred: np.ndarray, target: np.ndarray) -> None:
+                         pred: np.ndarray, target: np.ndarray,
+                         additional_info: str) -> None:
 
     file_path = pth.Path(file_path)
 
@@ -205,6 +204,9 @@ def ClassificationReport(file_path: Union[str, pth.Path],
     target = target.flatten()
 
     report: str = classification_report(target, pred)
+
+    if additional_info is not None:
+        report += f'\nAdditional info: {additional_info}'
 
     with open(file_path, 'w') as f:
         f.write(report)
