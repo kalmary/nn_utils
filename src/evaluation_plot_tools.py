@@ -24,7 +24,7 @@ class Plotter:
                          val_metric: Optional[list[float]] = None):
 
         file_path = self.plots_dir.joinpath(file_name)
-        metric_name = file_name.name.split('_')[0]
+        metric_name = file_name.split('_')[0]
 
         plt.figure(figsize=(10, 5))
         plt.plot(metric)
