@@ -28,16 +28,20 @@ class Plotter:
 
         plt.figure(figsize=(10, 5))
         plt.plot(metric)
+        
         if val_metric is not None:
             plt.plot(val_metric)
         plt.xlabel('Epoch [n]')
         plt.ylabel(f'{metric_name} [-]')
         plt.title(f'{metric_name} progression during training')
         plt.tight_layout()
+
+        legend_lst = [f'{metric_name}']
         if val_metric is not None:
-            plt.legend([f'{metric_name}', f'{metric_name} - validation'])
-        else:
-            plt.legend([f'{metric_name}'])
+            legend_lst.append(f'{metric_name} - validation')
+
+        plt.legend(legend_lst)
+
         plt.grid(True)
         plt.savefig(file_path)
         plt.close()
