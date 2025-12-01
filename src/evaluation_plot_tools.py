@@ -12,6 +12,13 @@ from typing import Union, Optional
 
 
 class Plotter:
+    """
+    A utility class for generating various evaluation plots for machine learning models.
+    
+    Args:
+        class_num (int): Number of classes in the classification problem
+        plots_dir (Union[str, pth.Path]): Directory where plots will be saved
+    """
     def __init__(self, class_num: int, plots_dir: Union[str, pth.Path]):
         self.class_num = class_num
         self.plots_dir = pth.Path(plots_dir)
@@ -20,7 +27,14 @@ class Plotter:
                          file_name: str,
                          metric: list[float],
                          val_metric: Optional[list[float]] = None):
-
+        """
+        Plot training and validation metric history over epochs.
+        
+        Args:
+            file_name (str): Name of the output file
+            metric (list[float]): Training metric values per epoch
+            val_metric (Optional[list[float]]): Validation metric values per epoch
+        """
         file_path = self.plots_dir.joinpath(file_name)
         metric_name = file_name.split('_')[0]
 
@@ -50,43 +64,79 @@ class Plotter:
                         num_classes: Optional[int] = None,
                         class_names: Optional[list] = None):  
             
-            file_path = self.plots_dir.joinpath(file_name)
+        """
+        Plots a confusion matrix heatmap showing the relationship between actual and predicted classes.
 
-            cm = confusion_matrix(y_true=target, y_pred=prediction)
-            accuracy = accuracy_score(y_true=target, y_pred=prediction)
-            if class_names is None:
-                n_classes = num_classes if num_classes is not None else cm.shape[0]
-                class_names = [f"Class_{i}" for i in range(n_classes)]
+        Args:
+            file_name (str): Name of the output file where the plot will be saved
+            target (np.ndarray): Ground truth labels
+            prediction (np.ndarray): Model predictions 
+            num_classes (Optional[int]): Number of classes. If None, inferred from confusion matrix shape
+            class_names (Optional[list]): List of class names to use as labels. If None, default names are generated
 
-            plt.figure(figsize=(8, 6)) 
-            annot_kws = {"fontweight": 'bold'}
-            sns.heatmap(cm, 
-                        annot=True, 
-                        annot_kws=annot_kws,      
-                        fmt='d',
-                        cmap='Purples',
-                        xticklabels=class_names,
-                        yticklabels=class_names,
-                        cbar=True,
-                        linewidths=0.4,
-                        linecolor='black') 
+        The plot shows:
+        - Heatmap with color intensity indicating number of samples
+        - Numeric values in each cell showing the raw counts
+        - Class labels on both axes
+        - Overall accuracy percentage in the title
+        """
+                   
+        file_path = self.plots_dir.joinpath(file_name)
 
-            plt.title(f"Correlation matrix\nAccuracy: {accuracy:.2%}")
-            plt.ylabel("Actual classes")
-            plt.xlabel("Estimated classes")
+        cm = confusion_matrix(y_true=target, y_pred=prediction)
+        accuracy = accuracy_score(y_true=target, y_pred=prediction)
+        if class_names is None:
+            n_classes = num_classes if num_classes is not None else cm.shape[0]
+            class_names = [f"Class_{i}" for i in range(n_classes)]
 
-            plt.xticks(rotation=45, ha='right')
-            plt.yticks(rotation=0)
-            plt.tight_layout()
-            plt.savefig(file_path)
-            plt.close()
+        plt.figure(figsize=(8, 6)) 
+        annot_kws = {"fontweight": 'bold'}
+        sns.heatmap(cm, 
+                    annot=True, 
+                    annot_kws=annot_kws,      
+                    fmt='d',
+                    cmap='Purples',
+                    xticklabels=class_names,
+                    yticklabels=class_names,
+                    cbar=True,
+                    linewidths=0.4,
+                    linecolor='black') 
+
+        plt.title(f"Correlation matrix\nAccuracy: {accuracy:.2%}")
+        plt.ylabel("Actual classes")
+        plt.xlabel("Estimated classes")
+
+        plt.xticks(rotation=45, ha='right')
+        plt.yticks(rotation=0)
+        plt.tight_layout()
+        plt.savefig(file_path)
+        plt.close()
 
     def cnf_matrix_analysis(self, file_name: str,
                 target: np.ndarray, 
                 prediction: np.ndarray,
                 num_classes: Optional[int] = None,
                 class_names: Optional[list] = None):
-    
+        """
+            Plots an enhanced confusion matrix heatmap with additional percentage analysis.
+
+            Args:
+                file_name (str): Name of the output file where the plot will be saved
+                target (np.ndarray): Ground truth labels
+                prediction (np.ndarray): Model predictions
+                num_classes (Optional[int]): Number of classes. If None, inferred from confusion matrix shape
+                class_names (Optional[list]): List of class names to use as labels. If None, default names are generated
+
+            The plot shows:
+            - Heatmap with color intensity indicating number of samples
+            - Both raw counts and percentages in each cell
+            - Empty cells for zero counts
+            - Class labels on both axes
+            - Overall accuracy percentage in the title
+            - Enhanced visual formatting including:
+        """         
+
+
         file_path = self.plots_dir.joinpath(file_name)
 
         cm = confusion_matrix(y_true=target, y_pred=prediction)
@@ -115,7 +165,8 @@ class Plotter:
                     annot_labels[i, j] = f"{count}\n({percent:.1%})"
 
         sns.set_context("notebook", font_scale=1.1)
-        plt.figure(figsize=(10, 8)) 
+        plt.figure(figsize=(10, 8))
+
 
         ax = sns.heatmap(cm, 
                         annot=annot_labels, 
@@ -142,8 +193,14 @@ class Plotter:
 
     def prc_curve(self, file_name: str,
                   target: np.ndarray, pred_prob: np.ndarray):
-
-
+        """
+        Plot Precision-Recall curves for multi-class classification.
+        
+        Args:
+            file_name (str): Name of the output file
+            target (np.ndarray): Ground truth labels
+            pred_prob (np.ndarray): Predicted probabilities for each class
+        """
         file_path = self.plots_dir.joinpath(file_name)
         legend = []
 
@@ -166,7 +223,14 @@ class Plotter:
 
     def roc_curve(self, file_name: str,
                   target: np.ndarray, pred_prob: np.ndarray):
-
+        """
+        Plot ROC (Receiver Operating Characteristic) curves for multi-class classification.
+        
+        Args:
+            file_name (str): Name of the output file
+            target (np.ndarray): Ground truth labels
+            pred_prob (np.ndarray): Predicted probabilities for each class
+        """
         file_path = self.plots_dir.joinpath(file_name)
 
         y_true_bin = label_binarize(target, classes=np.arange(self.class_num))
@@ -195,9 +259,17 @@ class Plotter:
         plt.close()
 
 def ClassificationReport(file_path: Union[str, pth.Path],
-                         pred: np.ndarray, target: np.ndarray,
-                         additional_info: str) -> None:
-
+                         pred: np.ndarray, target: np.ndarray) -> None:
+    """
+    Generate and save a detailed classification report to a text file.
+    
+    Args:
+        file_path (Union[str, pth.Path]): Path where the report will be saved
+        pred (np.ndarray): Model predictions
+        target (np.ndarray): Ground truth labels
+    
+    The report includes precision, recall, f1-score, and support for each class.
+    """
     file_path = pth.Path(file_path)
 
     pred = pred.flatten()
