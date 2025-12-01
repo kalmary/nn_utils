@@ -108,7 +108,7 @@ def load_model(file_path: Union[str, pth.Path],
     if device is not None:
         model_state_dict = torch.load(file_path, map_location=device)
     else:
-        model_state_dict = torch.load(file_path, map_location=device)
+        model_state_dict = torch.load(file_path)
     
     model.load_state_dict(model_state_dict)
     model.to(device)

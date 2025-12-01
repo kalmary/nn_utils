@@ -259,7 +259,8 @@ class Plotter:
         plt.close()
 
 def ClassificationReport(file_path: Union[str, pth.Path],
-                         pred: np.ndarray, target: np.ndarray) -> None:
+                         pred: np.ndarray, target: np.ndarray,
+                         additional_info: Optional[str] = None) -> None:
     """
     Generate and save a detailed classification report to a text file.
     
