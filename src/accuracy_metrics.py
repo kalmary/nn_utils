@@ -8,17 +8,41 @@ import sys
 from typing import Optional
 
 def get_Probabilities(logits: torch.Tensor):
+    """
+    Convert logits to probabilities using softmax.
+    
+    Args:
+        logits (torch.Tensor): Raw model outputs (batch_size, num_classes)
+    
+    Returns:
+        torch.Tensor: Probability distribution over classes
+    """
     probs = F.softmax(logits, dim=1)
     return probs
 
 def get_intLabels(probabilities: torch.Tensor):
+    """
+    Convert probabilities to integer class labels.
+    
+    Args:
+        probabilities (torch.Tensor): Probability distribution over classes
+    
+    Returns:
+        torch.Tensor: Predicted class indices
+    """
     labels = torch.argmax(probabilities, dim=1)
     return labels
 
 def calculate_accuracy(outputs, labels):
-
     """
-
+    Calculate classification accuracy.
+    
+    Args:
+        outputs: Model predictions (batch_size, num_classes)
+        labels: True labels (batch_size)
+    
+    Returns:
+        float: Accuracy as a fraction between 0 and 1
     """
     predicted = torch.argmax(outputs, dim=1)
 
@@ -67,6 +91,16 @@ def calculate_weighted_accuracy(outputs, labels, weights):
 
 
 def get_dataset_len(loader, verbose = False):
+    """
+    Get the total number of batches in a DataLoader.
+    
+    Args:
+        loader: PyTorch DataLoader
+        verbose (bool): Whether to print progress information
+    
+    Returns:
+        int: Total number of batches in the loader
+    """
     total = 0
     if verbose:
         print('\nGetting dataset size...\n')
@@ -131,7 +165,17 @@ def calculate_class_weights(loader: torch.utils.data.DataLoader,
 
 
 def compute_mIoU(predictions: torch.Tensor, targets: torch.Tensor, num_classes: int):
-
+    """
+    Compute mean Intersection over Union (mIoU) for segmentation tasks.
+    
+    Args:
+        predictions (torch.Tensor): Model predictions (can be logits or class indices)
+        targets (torch.Tensor): Ground truth labels
+        num_classes (int): Total number of classes
+    
+    Returns:
+        tuple: (mean_iou, class_ious) where mean_iou is float and class_ious is tensor
+    """
     if predictions.dim() > targets.dim():
         # If predictions are logits/ probs (with class dimension), convert to class indices
         predictions = torch.argmax(predictions, dim=1)

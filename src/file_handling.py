@@ -7,6 +7,15 @@ import ast
 
 
 def wrap_hist(**kwargs) -> dict:
+    """
+    Wrap keyword arguments into a dictionary.
+    
+    Args:
+        **kwargs: Arbitrary keyword arguments
+    
+    Returns:
+        dict: Dictionary containing all passed keyword arguments
+    """
     return kwargs
 
 # Files below are meant to be used in conjunction with the training script and each other. 
@@ -78,7 +87,20 @@ def save_model(path: Union[str, pth.Path],
 def load_model(file_path: Union[str, pth.Path],
                model: nn.Module,
                device: Optional[torch.device] = None) -> nn.Module:
- 
+    """
+    Load a PyTorch model from a saved state dictionary file.
+    
+    Args:
+        file_path (Union[str, pth.Path]): Path to the saved model file
+        model (nn.Module): Model instance to load the state into
+        device (Optional[torch.device]): Device to load the model onto
+    
+    Returns:
+        nn.Module: Model with loaded state dictionary
+    
+    Raises:
+        ValueError: If the file path does not exist
+    """
     file_path = pth.Path(file_path)
     if not file_path.exists():
         raise ValueError(f'Path {file_path} does not exist.')

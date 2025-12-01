@@ -14,6 +14,13 @@ from typing import Union, Optional
 
 
 class Plotter:
+    """
+    A utility class for generating various evaluation plots for machine learning models.
+    
+    Args:
+        class_num (int): Number of classes in the classification problem
+        plots_dir (Union[str, pth.Path]): Directory where plots will be saved
+    """
     def __init__(self, class_num: int, plots_dir: Union[str, pth.Path]):
         self.class_num = class_num
         self.plots_dir = pth.Path(plots_dir)
@@ -22,7 +29,14 @@ class Plotter:
                          file_name: str,
                          metric: list[float],
                          val_metric: Optional[list[float]] = None):
-
+        """
+        Plot training and validation metric history over epochs.
+        
+        Args:
+            file_name (str): Name of the output file
+            metric (list[float]): Training metric values per epoch
+            val_metric (Optional[list[float]]): Validation metric values per epoch
+        """
         file_path = self.plots_dir.joinpath(file_name)
         metric_name = file_name.split('_')[0]
 
@@ -181,8 +195,14 @@ class Plotter:
 
     def prc_curve(self, file_name: str,
                   target: np.ndarray, pred_prob: np.ndarray):
-
-
+        """
+        Plot Precision-Recall curves for multi-class classification.
+        
+        Args:
+            file_name (str): Name of the output file
+            target (np.ndarray): Ground truth labels
+            pred_prob (np.ndarray): Predicted probabilities for each class
+        """
         file_path = self.plots_dir.joinpath(file_name)
         legend = []
 
@@ -205,7 +225,14 @@ class Plotter:
 
     def roc_curve(self, file_name: str,
                   target: np.ndarray, pred_prob: np.ndarray):
-
+        """
+        Plot ROC (Receiver Operating Characteristic) curves for multi-class classification.
+        
+        Args:
+            file_name (str): Name of the output file
+            target (np.ndarray): Ground truth labels
+            pred_prob (np.ndarray): Predicted probabilities for each class
+        """
         file_path = self.plots_dir.joinpath(file_name)
 
         y_true_bin = label_binarize(target, classes=np.arange(self.class_num))
@@ -235,7 +262,16 @@ class Plotter:
 
 def ClassificationReport(file_path: Union[str, pth.Path],
                          pred: np.ndarray, target: np.ndarray) -> None:
-
+    """
+    Generate and save a detailed classification report to a text file.
+    
+    Args:
+        file_path (Union[str, pth.Path]): Path where the report will be saved
+        pred (np.ndarray): Model predictions
+        target (np.ndarray): Ground truth labels
+    
+    The report includes precision, recall, f1-score, and support for each class.
+    """
     file_path = pth.Path(file_path)
 
     pred = pred.flatten()
