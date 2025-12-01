@@ -52,43 +52,79 @@ class Plotter:
                         num_classes: Optional[int] = None,
                         class_names: Optional[list] = None):  
             
-            file_path = self.plots_dir.joinpath(file_name)
+        """
+        Plots a confusion matrix heatmap showing the relationship between actual and predicted classes.
 
-            cm = confusion_matrix(y_true=target, y_pred=prediction)
-            accuracy = accuracy_score(y_true=target, y_pred=prediction)
-            if class_names is None:
-                n_classes = num_classes if num_classes is not None else cm.shape[0]
-                class_names = [f"Class_{i}" for i in range(n_classes)]
+        Args:
+            file_name (str): Name of the output file where the plot will be saved
+            target (np.ndarray): Ground truth labels
+            prediction (np.ndarray): Model predictions 
+            num_classes (Optional[int]): Number of classes. If None, inferred from confusion matrix shape
+            class_names (Optional[list]): List of class names to use as labels. If None, default names are generated
 
-            plt.figure(figsize=(8, 6)) 
-            annot_kws = {"fontweight": 'bold'}
-            sns.heatmap(cm, 
-                        annot=True, 
-                        annot_kws=annot_kws,      
-                        fmt='d',
-                        cmap='Purples',
-                        xticklabels=class_names,
-                        yticklabels=class_names,
-                        cbar=True,
-                        linewidths=0.4,
-                        linecolor='black') 
+        The plot shows:
+        - Heatmap with color intensity indicating number of samples
+        - Numeric values in each cell showing the raw counts
+        - Class labels on both axes
+        - Overall accuracy percentage in the title
+        """
+                   
+        file_path = self.plots_dir.joinpath(file_name)
 
-            plt.title(f"Correlation matrix\nAccuracy: {accuracy:.2%}")
-            plt.ylabel("Actual classes")
-            plt.xlabel("Estimated classes")
+        cm = confusion_matrix(y_true=target, y_pred=prediction)
+        accuracy = accuracy_score(y_true=target, y_pred=prediction)
+        if class_names is None:
+            n_classes = num_classes if num_classes is not None else cm.shape[0]
+            class_names = [f"Class_{i}" for i in range(n_classes)]
 
-            plt.xticks(rotation=45, ha='right')
-            plt.yticks(rotation=0)
-            plt.tight_layout()
-            plt.savefig(file_path)
-            plt.close()
+        plt.figure(figsize=(8, 6)) 
+        annot_kws = {"fontweight": 'bold'}
+        sns.heatmap(cm, 
+                    annot=True, 
+                    annot_kws=annot_kws,      
+                    fmt='d',
+                    cmap='Purples',
+                    xticklabels=class_names,
+                    yticklabels=class_names,
+                    cbar=True,
+                    linewidths=0.4,
+                    linecolor='black') 
+
+        plt.title(f"Correlation matrix\nAccuracy: {accuracy:.2%}")
+        plt.ylabel("Actual classes")
+        plt.xlabel("Estimated classes")
+
+        plt.xticks(rotation=45, ha='right')
+        plt.yticks(rotation=0)
+        plt.tight_layout()
+        plt.savefig(file_path)
+        plt.close()
 
     def cnf_matrix_analysis(self, file_name: str,
                 target: np.ndarray, 
                 prediction: np.ndarray,
                 num_classes: Optional[int] = None,
                 class_names: Optional[list] = None):
-    
+        """
+            Plots an enhanced confusion matrix heatmap with additional percentage analysis.
+
+            Args:
+                file_name (str): Name of the output file where the plot will be saved
+                target (np.ndarray): Ground truth labels
+                prediction (np.ndarray): Model predictions
+                num_classes (Optional[int]): Number of classes. If None, inferred from confusion matrix shape
+                class_names (Optional[list]): List of class names to use as labels. If None, default names are generated
+
+            The plot shows:
+            - Heatmap with color intensity indicating number of samples
+            - Both raw counts and percentages in each cell
+            - Empty cells for zero counts
+            - Class labels on both axes
+            - Overall accuracy percentage in the title
+            - Enhanced visual formatting including:
+        """         
+
+
         file_path = self.plots_dir.joinpath(file_name)
 
         cm = confusion_matrix(y_true=target, y_pred=prediction)
@@ -117,7 +153,8 @@ class Plotter:
                     annot_labels[i, j] = f"{count}\n({percent:.1%})"
 
         sns.set_context("notebook", font_scale=1.1)
-        plt.figure(figsize=(10, 8)) 
+        plt.figure(figsize=(10, 8))
+
 
         ax = sns.heatmap(cm, 
                         annot=annot_labels, 
