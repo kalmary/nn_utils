@@ -258,6 +258,63 @@ class Plotter:
         plt.savefig(file_path)
         plt.close()
 
+    def threshold_hist(self,
+                    file_name: str, 
+                    class_stats: dict[int, list[float]], 
+                    thresholds: list[float],
+                    percentiles: list[int] = [5, 10], 
+                    bins_step: float = 0.01):
+        """
+
+        Generating histograms for probability distribution for every class
+        
+        Args:
+            file_name (str): Name of the output file
+            class_stats: Dict {class_id: [list of probabilities]} 
+            thresholds: List of computed thresholds for each class_id (p5)
+            percentiles: List of percentile values to mark as vertical lines on plots (default: [5, 10])
+            bins_step: Bin width for histogram 
+        """
+        with PdfPages(file_path) as pdf:
+            for class_id in range(len(thresholds)):
+                if not class_stats[class_id]:
+                    continue
+                    
+                probs = np.array(class_stats[class_id])
+                
+                fig, ax = plt.subplots(figsize=(10, 6))
+                
+                bins = np.arange(0, 1 + bins_step, bins_step)
+                sns.histplot(probs, bins=bins, kde=True, ax=ax, color='steelblue', 
+                            edgecolor='black', alpha=0.7)
+                
+
+                median = np.median(probs)
+                mean = np.mean(probs)
+
+                for percentile in percentiles:
+                    color = f'#{random.randint(0, 0xFFFFFF):06x}'
+                    value = np.percentile(probs, percentile)
+                    ax.axvline(value, color=color, linestyle='--', linewidth=1,
+                            label=f'p{percentile} = {value:.3f}')
+                ax.axvline(median, color='green', linestyle='--', linewidth=1, 
+                        label=f'Median = {median:.3f}')
+                min_prob = np.min(probs)
+                max_prob = np.max(probs)
+                margin = (max_prob - min_prob) * 0.05 
+                ax.set_xlim(max(0, min_prob - margin), min(1, max_prob + margin))
+                
+                ax.set_xlabel('Probability', fontsize=12, fontweight='bold')
+                ax.set_ylabel('Number of samples', fontsize=12, fontweight='bold')
+                ax.set_title(f'Class {class_id} - Probability distribution (Samples count n={len(probs)})', 
+                            fontsize=14, fontweight='bold')
+                ax.legend(fontsize=10, loc='upper left')
+                
+                plt.tight_layout()
+                pdf.savefig(fig, dpi=300)
+                plt.close(fig)
+
+            
 def ClassificationReport(file_path: Union[str, pth.Path],
                          pred: np.ndarray, target: np.ndarray,
                          additional_info: Optional[str] = None) -> None:
