@@ -273,8 +273,12 @@ class Plotter:
             class_stats: Dict {class_id: [list of probabilities]} 
             thresholds: List of computed thresholds for each class_id (p5)
             percentiles: List of percentile values to mark as vertical lines on plots (default: [5, 10])
-            bins_step: Bin width for histogram 
+            bins_step: Bin width for histogram (default: 0.01)
+
         """
+        sns.set_style("whitegrid")
+        file_path = self.plots_dir.joinpath(file_name)
+
         with PdfPages(file_path) as pdf:
             for class_id in range(len(thresholds)):
                 if not class_stats[class_id]:
