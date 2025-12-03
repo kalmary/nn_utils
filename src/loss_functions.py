@@ -237,7 +237,7 @@ class FocalLoss(nn.Module):
         else:
             return loss
 
-class FocalLossWithArcFaceTransform(nn.Module):
+class FocalLoss_ArcFace(nn.Module):
     def __init__(self, alpha=None, gamma=2.0, reduction='mean', ignore_index=None, margin = 0.3, scale = 30.0):
         """
         Focal Loss for any type of classification/segmentation task.
