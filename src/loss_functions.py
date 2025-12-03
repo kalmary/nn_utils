@@ -256,7 +256,7 @@ class FocalLoss_ArcFace(nn.Module):
             - Images: (B, C, H, W) with targets (B, H, W)
             - Videos: (B, C, T, H, W) with targets (B, T, H, W)
         """
-        super(FocalLoss, self).__init__()
+        super(FocalLoss_ArcFace, self).__init__()
         self.alpha = alpha
         self.gamma = gamma
         self.reduction = reduction
