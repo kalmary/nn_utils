@@ -237,6 +237,105 @@ class FocalLoss(nn.Module):
         else:
             return loss
 
+class FocalLossWithArcFaceTransform(nn.Module):
+    def __init__(self, alpha=None, gamma=2.0, reduction='mean', ignore_index=None, margin = 0.3, scale = 30.0):
+        """
+        Focal Loss for any type of classification/segmentation task.
+        
+        Args:
+            alpha: Class weights tensor of shape (num_classes,) or None
+            gamma: Focusing parameter (default: 2.0)
+            reduction: 'mean', 'sum', or 'none'
+            ignore_index: Class index to ignore in loss calculation
+            margin: m - margins in radius 
+            scale: s - scaling factor 
+        
+        Input shapes supported:
+            - Classification: (B, C) with targets (B,)
+            - Point clouds: (B, C, N) or (B, N, C) with targets (B, N)
+            - Images: (B, C, H, W) with targets (B, H, W)
+            - Videos: (B, C, T, H, W) with targets (B, T, H, W)
+        """
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+        self.ignore_index = ignore_index
+        self.margin = margin
+        self.scale = scale 
+
+    def forward(self, inputs, targets):
+        # Standardize input shape to (B*N, C)
+        inputs_flat, targets_flat, num_classes = _standardize_inputs(inputs, targets)
+        
+        # Handle ignore_index
+        if self.ignore_index is not None:
+            mask = targets_flat != self.ignore_index
+            inputs_flat = inputs_flat[mask]
+            targets_flat = targets_flat[mask]
+            if inputs_flat.numel() == 0:
+                return torch.tensor(0.0, device=inputs.device, requires_grad=True)
+
+        # Adding ArcFace Margins to logits 
+        inputs_flat = arcface_transform(inputs_flat, targets_flat, self.margin, self.scale)
+
+        # Calculate cross-entropy loss
+        ce_loss = F.cross_entropy(inputs_flat, targets_flat, reduction='none')
+
+        # Calculate pt (probability of true class)
+        pt = torch.exp(-ce_loss)
+
+        # Calculate focal term
+        focal_term = (1 - pt) ** self.gamma
+
+        # Apply alpha weighting
+        if self.alpha is not None:
+            if self.alpha.device != inputs.device:
+                self.alpha = self.alpha.to(inputs.device)
+            alpha_per_sample = self.alpha.gather(0, targets_flat)
+            focal_term = alpha_per_sample * focal_term
+
+        # Combine to get focal loss
+        loss = focal_term * ce_loss
+
+        if self.reduction == 'mean':
+            return loss.mean()
+        elif self.reduction == 'sum':
+            return loss.sum()
+        else:
+            return loss
+
+def arcface_transform(inputs_flat, targets_flat, margin, scale):
+    """
+    Adding ArcFace margins to logits
+    
+    Args:
+        inputs_flat: (B*N, C) - Raw logits
+        targets_flat: (B*N,) - True classes
+        margin: m - margins in radius 
+        scale: s - scaling factor 
+    """
+    # Standardize input shape to (B*N, C)
+    normalized = F.normalize(inputs_flat, p=2, dim=1)  
+    
+    # Extracting values for true classes
+    cos_theta = normalized.gather(1, targets_flat.unsqueeze(1)) 
+    cos_theta = cos_theta.squeeze(1)  
+    
+    # Adding margin: cos(theta + m)
+    theta = torch.acos(cos_theta.clamp(-1.0 + 1e-7, 1.0 - 1e-7))
+    theta_m = theta + margin
+    cos_theta_m = torch.cos(theta_m)
+    
+    # Changing values only for true labels
+    normalized.scatter_(1, targets_flat.unsqueeze(1), cos_theta_m.unsqueeze(1))
+    
+    # Scaling 
+    logits_arcface = normalized * scale
+    
+    return logits_arcface
+
+
 
 class LabelSmoothingFocalLoss(nn.Module):
     def __init__(self, alpha=None, gamma=2.0, smoothing=0.1, reduction='mean', ignore_index=None):
