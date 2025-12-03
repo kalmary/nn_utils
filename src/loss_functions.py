@@ -328,7 +328,7 @@ def arcface_transform(inputs_flat, targets_flat, margin, scale):
     cos_theta_m = torch.cos(theta_m)
     
     # Changing values only for true labels
-    normalized.scatter_(1, targets_flat.unsqueeze(1), cos_theta_m.unsqueeze(1))
+    normalized = normalized.scatter(1, targets_flat.unsqueeze(1), cos_theta_m.unsqueeze(1))
     
     # Scaling 
     logits_arcface = normalized * scale
