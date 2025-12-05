@@ -264,6 +264,36 @@ class FocalLoss_ArcFace(nn.Module):
         self.margin = margin
         self.scale = scale 
 
+    def _arcface_transform(inputs_flat, targets_flat, margin, scale):
+        """
+        Adding ArcFace margins to logits
+        
+        Args:
+            inputs_flat: (B*N, C) - Raw logits
+            targets_flat: (B*N,) - True classes
+            margin: m - margins in radius 
+            scale: s - scaling factor 
+        """
+        # Standardize input shape to (B*N, C)
+        normalized = F.normalize(inputs_flat, p=2, dim=1)  
+        
+        # Extracting values for true classes
+        cos_theta = normalized.gather(1, targets_flat.unsqueeze(1)) 
+        cos_theta = cos_theta.squeeze(1)  
+        
+        # Adding margin: cos(theta + m)
+        theta = torch.acos(cos_theta.clamp(-1.0 + 1e-7, 1.0 - 1e-7))
+        theta_m = theta + margin
+        cos_theta_m = torch.cos(theta_m)
+        
+        # Changing values only for true labels
+        normalized = normalized.scatter(1, targets_flat.unsqueeze(1), cos_theta_m.unsqueeze(1))
+        
+        # Scaling 
+        logits_arcface = normalized * scale
+        
+        return logits_arcface
+
     def forward(self, inputs, targets):
         # Standardize input shape to (B*N, C)
         inputs_flat, targets_flat, num_classes = _standardize_inputs(inputs, targets)
@@ -277,7 +307,7 @@ class FocalLoss_ArcFace(nn.Module):
                 return torch.tensor(0.0, device=inputs.device, requires_grad=True)
 
         # Adding ArcFace Margins to logits 
-        inputs_flat = arcface_transform(inputs_flat, targets_flat, self.margin, self.scale)
+        inputs_flat = self._arcface_transform(inputs_flat, targets_flat, self.margin, self.scale)
 
         # Calculate cross-entropy loss
         ce_loss = F.cross_entropy(inputs_flat, targets_flat, reduction='none')
@@ -305,35 +335,7 @@ class FocalLoss_ArcFace(nn.Module):
         else:
             return loss
 
-def arcface_transform(inputs_flat, targets_flat, margin, scale):
-    """
-    Adding ArcFace margins to logits
-    
-    Args:
-        inputs_flat: (B*N, C) - Raw logits
-        targets_flat: (B*N,) - True classes
-        margin: m - margins in radius 
-        scale: s - scaling factor 
-    """
-    # Standardize input shape to (B*N, C)
-    normalized = F.normalize(inputs_flat, p=2, dim=1)  
-    
-    # Extracting values for true classes
-    cos_theta = normalized.gather(1, targets_flat.unsqueeze(1)) 
-    cos_theta = cos_theta.squeeze(1)  
-    
-    # Adding margin: cos(theta + m)
-    theta = torch.acos(cos_theta.clamp(-1.0 + 1e-7, 1.0 - 1e-7))
-    theta_m = theta + margin
-    cos_theta_m = torch.cos(theta_m)
-    
-    # Changing values only for true labels
-    normalized = normalized.scatter(1, targets_flat.unsqueeze(1), cos_theta_m.unsqueeze(1))
-    
-    # Scaling 
-    logits_arcface = normalized * scale
-    
-    return logits_arcface
+
 
 
 
