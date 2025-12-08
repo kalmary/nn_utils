@@ -57,9 +57,14 @@ src
 │   └── load_json
 ├── loss_functions.py
 │   ├── IoULoss
+│   ├── FocalLoss_ArcFace
 │   ├── DiceLoss
 │   ├── FocalLoss
 │   └── LabelSmoothingFocalLoss
 └── training_callbacks.py
     └── EarlyStopping
 ```
+
+### **License**
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
