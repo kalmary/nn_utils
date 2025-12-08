@@ -45,6 +45,7 @@ class Plotter:
             plt.plot(val_metric)
         plt.xlabel('Epoch [n]')
         plt.ylabel(f'{metric_name} [-]')
+        plt.ylim([0., max(metric)+0.1])
         plt.title(f'{metric_name} progression during training')
         plt.tight_layout()
 
