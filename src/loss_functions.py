@@ -264,6 +264,7 @@ class FocalLoss_ArcFace(nn.Module):
         self.margin = margin
         self.scale = scale 
 
+    @staticmethod
     def _arcface_transform(inputs_flat, targets_flat, margin, scale):
         """
         Adding ArcFace margins to logits
