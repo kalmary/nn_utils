@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from typing import Optional
+
 
 def _standardize_inputs(inputs, targets, num_classes=None):
     """
@@ -175,68 +177,6 @@ class DiceLoss(nn.Module):
         else:
             return loss
 
-
-class FocalLoss(nn.Module):
-    def __init__(self, alpha=None, gamma=2.0, reduction='mean', ignore_index=None):
-        """
-        Focal Loss for any type of classification/segmentation task.
-        
-        Args:
-            alpha: Class weights tensor of shape (num_classes,) or None
-            gamma: Focusing parameter (default: 2.0)
-            reduction: 'mean', 'sum', or 'none'
-            ignore_index: Class index to ignore in loss calculation
-        
-        Input shapes supported:
-            - Classification: (B, C) with targets (B,)
-            - Point clouds: (B, C, N) or (B, N, C) with targets (B, N)
-            - Images: (B, C, H, W) with targets (B, H, W)
-            - Videos: (B, C, T, H, W) with targets (B, T, H, W)
-        """
-        super(FocalLoss, self).__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-        self.reduction = reduction
-        self.ignore_index = ignore_index
-
-    def forward(self, inputs, targets):
-        # Standardize input shape to (B*N, C)
-        inputs_flat, targets_flat, num_classes = _standardize_inputs(inputs, targets)
-        
-        # Handle ignore_index
-        if self.ignore_index is not None:
-            mask = targets_flat != self.ignore_index
-            inputs_flat = inputs_flat[mask]
-            targets_flat = targets_flat[mask]
-            if inputs_flat.numel() == 0:
-                return torch.tensor(0.0, device=inputs.device, requires_grad=True)
-
-        # Calculate cross-entropy loss
-        ce_loss = F.cross_entropy(inputs_flat, targets_flat, reduction='none')
-
-        # Calculate pt (probability of true class)
-        pt = torch.exp(-ce_loss)
-
-        # Calculate focal term
-        focal_term = (1 - pt) ** self.gamma
-
-        # Apply alpha weighting
-        if self.alpha is not None:
-            if self.alpha.device != inputs.device:
-                self.alpha = self.alpha.to(inputs.device)
-            alpha_per_sample = self.alpha.gather(0, targets_flat)
-            focal_term = alpha_per_sample * focal_term
-
-        # Combine to get focal loss
-        loss = focal_term * ce_loss
-
-        if self.reduction == 'mean':
-            return loss.mean()
-        elif self.reduction == 'sum':
-            return loss.sum()
-        else:
-            return loss
-
 class FocalLoss_ArcFace(nn.Module):
     def __init__(self, alpha=None, gamma=2.0, reduction='mean', ignore_index=None, margin = 0.3, scale = 30.0):
         """
@@ -339,18 +279,17 @@ class FocalLoss_ArcFace(nn.Module):
 
 
 
-
-class LabelSmoothingFocalLoss(nn.Module):
-    def __init__(self, alpha=None, gamma=2.0, smoothing=0.1, reduction='mean', ignore_index=None):
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=None, gamma=2.0, smoothing=0.0, reduction='mean', ignore_index=-100):
         """
-        Focal Loss with Label Smoothing for any type of classification/segmentation task.
+        Optimized Focal Loss with Label Smoothing using PyTorch's CrossEntropyLoss.
         
         Args:
             alpha: Class weights tensor of shape (num_classes,) or None
             gamma: Focusing parameter (default: 2.0)
             smoothing: Label smoothing parameter (default: 0.1)
             reduction: 'mean', 'sum', or 'none'
-            ignore_index: Class index to ignore in loss calculation
+            ignore_index: Class index to ignore in loss calculation (default: -100)
         
         Input shapes supported:
             - Classification: (B, C) with targets (B,)
@@ -358,7 +297,7 @@ class LabelSmoothingFocalLoss(nn.Module):
             - Images: (B, C, H, W) with targets (B, H, W)
             - Videos: (B, C, T, H, W) with targets (B, T, H, W)
         """
-        super(LabelSmoothingFocalLoss, self).__init__()
+        super(FocalLoss, self).__init__()
         
         self.alpha = alpha
         self.gamma = gamma
@@ -368,53 +307,58 @@ class LabelSmoothingFocalLoss(nn.Module):
         
         assert 0.0 <= smoothing < 1.0, "Smoothing must be in [0.0, 1.0)"
         assert gamma >= 0.0, "Gamma must be non-negative"
+        
+        # Create CrossEntropyLoss with label smoothing and no reduction
+        # We'll apply focal weighting and alpha ourselves
+        self.ce_loss = nn.CrossEntropyLoss(
+            weight=None,  # We'll apply alpha separately after focal weighting
+            reduction='none',
+            ignore_index=ignore_index,
+            label_smoothing=smoothing
+        )
     
-    def forward(self, inputs, targets):
+    def forward(self, inputs, targets, num_classes = Optional[int]):
         # Standardize input shape to (B*N, C)
-        inputs_flat, targets_flat, num_classes = _standardize_inputs(inputs, targets)
+
+        inputs_flat, targets_flat, num_classes = _standardize_inputs(inputs, targets, num_classes)
         
         # Handle ignore_index
         if self.ignore_index is not None:
             mask = targets_flat != self.ignore_index
-            inputs_flat = inputs_flat[mask]
-            targets_flat = targets_flat[mask]
-            if inputs_flat.numel() == 0:
+            if not mask.any():
                 return torch.tensor(0.0, device=inputs.device, requires_grad=True)
-        
-        # Get log probabilities and probabilities
-        log_probs = F.log_softmax(inputs_flat, dim=-1)
-        probs = torch.exp(log_probs)
-        
-        # Create one-hot encoded targets
-        targets_one_hot = F.one_hot(targets_flat, num_classes=num_classes).float()
-        
-        # Apply label smoothing
-        if self.smoothing > 0:
-            confidence = 1.0 - self.smoothing
-            smooth_value = self.smoothing / (num_classes - 1)
-            targets_smooth = targets_one_hot * confidence + smooth_value * (1 - targets_one_hot)
-        else:
-            targets_smooth = targets_one_hot
-        
-        # Calculate focal weight
-        focal_weight = (1 - probs) ** self.gamma
-        
-        # Calculate focal loss with smooth labels
-        loss = -targets_smooth * log_probs * focal_weight
-        
-        # Apply class weights
+
+        # Calculate cross-entropy loss with label smoothing
+        ce_loss = self.ce_loss(inputs_flat, targets_flat)
+
+        # Calculate pt (probability of true class) from softmax
+        probs = F.softmax(inputs_flat, dim=-1)
+        pt = probs.gather(1, targets_flat.unsqueeze(1)).squeeze(1)
+
+        # Calculate focal term
+        focal_term = (1 - pt) ** self.gamma
+
+        # Apply focal weighting
+        loss = focal_term * ce_loss
+
+        # Apply alpha weighting
         if self.alpha is not None:
             if self.alpha.device != inputs.device:
                 self.alpha = self.alpha.to(inputs.device)
-            alpha_t = self.alpha.unsqueeze(0).expand(inputs_flat.size(0), -1)
-            loss = loss * alpha_t
-        
-        # Sum over classes
-        loss = loss.sum(dim=-1)
-        
-        if self.reduction == 'mean':
-            return loss.mean()
-        elif self.reduction == 'sum':
-            return loss.sum()
+            alpha_per_sample = self.alpha.gather(0, targets_flat)
+            loss = alpha_per_sample * loss
+
+        # Apply reduction
+        if self.ignore_index is not None:
+            loss = loss * mask
+            if self.reduction == 'mean':
+                return loss.sum() / mask.sum().clamp(min=1)
+            elif self.reduction == 'sum':
+                return loss.sum()
         else:
-            return loss
+            if self.reduction == 'mean':
+                return loss.mean()
+            elif self.reduction == 'sum':
+                return loss.sum()
+        
+        return loss
