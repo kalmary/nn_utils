@@ -22,7 +22,7 @@ class Plotter:
     def __init__(self, class_num: int, plots_dir: Union[str, pth.Path]):
         self.class_num = class_num
         self.plots_dir = pth.Path(plots_dir)
-
+    
     def plot_metric_hist(self,
                          file_name: str,
                          metric: list[float],
@@ -39,19 +39,23 @@ class Plotter:
         metric_name = file_name.split('_')[0]
 
         plt.figure(figsize=(10, 5))
-        plt.plot(metric)
+        if not metric[-1]==-1:
+            plt.plot(metric)
         
         if val_metric is not None:
             plt.plot(val_metric)
+            
         plt.xlabel('Epoch [n]')
         plt.ylabel(f'{metric_name} [-]')
-        plt.ylim([0., max(metric)+0.1])
         plt.title(f'{metric_name} progression during training')
         plt.tight_layout()
 
         legend_lst = [f'{metric_name}']
         if val_metric is not None:
             legend_lst.append(f'{metric_name} - validation')
+        # if metric = -1 remove from legend
+        if metric[-1] == -1:
+            legend_lst.pop(metric.index(-1))
 
         plt.legend(legend_lst)
 
@@ -81,6 +85,8 @@ class Plotter:
         - Class labels on both axes
         - Overall accuracy percentage in the title
         """
+        target = target.flatten()
+        prediction = prediction.flatten()
                    
         file_path = self.plots_dir.joinpath(file_name)
 
@@ -136,7 +142,8 @@ class Plotter:
             - Overall accuracy percentage in the title
             - Enhanced visual formatting including:
         """         
-
+        target = target.flatten()
+        prediction = prediction.flatten()
 
         file_path = self.plots_dir.joinpath(file_name)
 
@@ -202,6 +209,9 @@ class Plotter:
             target (np.ndarray): Ground truth labels
             pred_prob (np.ndarray): Predicted probabilities for each class
         """
+        target = target.flatten()
+        pred_prob = pred_prob.reshape(-1, self.class_num)
+
         file_path = self.plots_dir.joinpath(file_name)
         legend = []
 
@@ -232,6 +242,9 @@ class Plotter:
             target (np.ndarray): Ground truth labels
             pred_prob (np.ndarray): Predicted probabilities for each class
         """
+        target = target.flatten()
+        pred_prob = pred_prob.reshape(-1, self.class_num)
+
         file_path = self.plots_dir.joinpath(file_name)
 
         y_true_bin = label_binarize(target, classes=np.arange(self.class_num))
