@@ -118,50 +118,83 @@ def get_dataset_len(loader, verbose = False):
     return total
 
 def calculate_class_weights(loader: torch.utils.data.DataLoader,
-                            num_classes,
+                            num_classes: int,
+                            method: str = 'effective',  # 'inverse' or 'effective' # todo change to effective only
+                            beta: float = 0.9999,
                             total: Optional[int] = None, 
-                            device: str ='cpu',
+                            device: torch.device = torch.device('cpu'),
                             verbose: bool = True) -> torch.Tensor:
+
     """
-    Calculates weights for each class (meant for unbalanced datasets)
+    Calculates weights for each class with multiple strategies.
+    
+    Args:
+        method: 'inverse' or 'effective' (more stable)
+        beta: Only used for 'effective' method
     """
     class_pixel_counts = Counter()
     total_pixels = 0
 
     if verbose:
-        print("\nObliczanie wag klas...")
+        print("\nCalculating class weights...")
     
-    progressbar = enumerate(loader)
-
-
-    for i, (_, targets) in progressbar:
-        # move labels to cpu
+    for i, (_, targets) in enumerate(loader):
         targets_np = targets.cpu().numpy().flatten()
-
         class_pixel_counts.update(targets_np)
         total_pixels += targets_np.size
 
-        if verbose:
-            if i % 10 == 0:
-                sys.stdout.write(f"\rProcessing iteration: {i}/{total}")
-                sys.stdout.flush()
+        if verbose and i % 10 == 0:
+            sys.stdout.write(f"\rProcessing iteration: {i}/{total if total else '?'}")
+            sys.stdout.flush()
+    
     if verbose:
-        sys.stdout.write(f"\n\rProcessing iteration: {i}/{total}\n")
-        sys.stdout.flush()
-
-    weights = torch.zeros(num_classes, device=device)
+        sys.stdout.write(f"\n")
+        
+    # Convert to tensor
+    class_counts = torch.zeros(num_classes, device=device)
     for class_idx in range(num_classes):
-        # if no class in dataset then use 0 value
-        count = class_pixel_counts.get(class_idx, 0)
-
-        if count == 0 and verbose:
-            print(f"Klasa {class_idx} nie ma pikseli w zbiorze danych.")
-        else:
-            # weights normalization
-            weights[class_idx] = total_pixels / (count * num_classes)
-
-    # final normalization
-    return weights / weights.sum() * num_classes
+        class_counts[class_idx] = class_pixel_counts.get(class_idx, 0)
+    
+    if verbose:
+        print(f"\nClass distribution:")
+        for i, count in enumerate(class_counts):
+            percentage = (count / total_pixels * 100) if total_pixels > 0 else 0
+            print(f"  Class {i}: {int(count):8d} points ({percentage:5.2f}%)")
+    
+    # Calculate weights based on method
+    if method == 'inverse':
+        # Your current method
+        weights = torch.zeros(num_classes, device=device)
+        for class_idx in range(num_classes):
+            count = class_counts[class_idx]
+            if count == 0:
+                if verbose:
+                    print(f"Warning: Class {class_idx} has no samples")
+                weights[class_idx] = 0.0
+            else:
+                weights[class_idx] = total_pixels / (count * num_classes)
+        
+        # Normalize
+        if weights.sum() > 0:
+            weights = weights / weights.sum() * num_classes
+            
+    elif method == 'effective':
+        # Effective number of samples method (more stable)
+        effective_num = 1.0 - torch.pow(beta, class_counts)
+        weights = (1.0 - beta) / (effective_num + 1e-7)  # Small epsilon for stability
+        
+        # Normalize
+        weights = weights / weights.sum() * num_classes
+        
+    else:
+        raise ValueError(f"Unknown method: {method}")
+    
+    if verbose:
+        print(f"\nClass weights (method={method}):")
+        for i, weight in enumerate(weights):
+            print(f"  Class {i}: {weight:.4f}")
+    
+    return weights
 
 
 def compute_mIoU(predictions: torch.Tensor, targets: torch.Tensor, num_classes: int):

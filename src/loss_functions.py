@@ -31,8 +31,8 @@ def _standardize_inputs(inputs, targets, num_classes=None):
             num_classes = inputs.shape[1]
         else:
             # Check if dim=1 looks like channels (typically smaller than spatial dims)
-            num_classes = inputs.shape[1] if inputs.shape[1] < inputs.shape[-1] or inputs.shape[1] == inputs.shape[-1] else inputs.shape[-1]
-    
+            num_classes = inputs.shape[1] if inputs.shape[1] <= inputs.shape[-1] else inputs.shape[-1]    
+
     if inputs.dim() == 2:
         # Regular classification: (B, C)
         logits = inputs
@@ -178,7 +178,7 @@ class DiceLoss(nn.Module):
             return loss
 
 class FocalLoss_ArcFace(nn.Module):
-    def __init__(self, alpha=None, gamma=2.0, reduction='mean', ignore_index=None, margin = 0.3, scale = 30.0):
+    def __init__(self, alpha=None, gamma=2.0, smoothing = 0.0, reduction='mean', ignore_index=None, margin = 0.3, scale = 30.0):
         """
         Focal Loss for any type of classification/segmentation task.
         
@@ -199,10 +199,18 @@ class FocalLoss_ArcFace(nn.Module):
         super(FocalLoss_ArcFace, self).__init__()
         self.alpha = alpha
         self.gamma = gamma
+        self.smoothing = smoothing
         self.reduction = reduction
         self.ignore_index = ignore_index
         self.margin = margin
-        self.scale = scale 
+        self.scale = scale
+
+        self.ce_loss = nn.CrossEntropyLoss(
+            weight=None,
+            reduction='none',
+            ignore_index=ignore_index if ignore_index is not None else -100,
+            label_smoothing=smoothing
+        )
 
     @staticmethod
     def _arcface_transform(inputs_flat, targets_flat, margin, scale):
@@ -237,7 +245,7 @@ class FocalLoss_ArcFace(nn.Module):
 
     def forward(self, inputs, targets):
         # Standardize input shape to (B*N, C)
-        inputs_flat, targets_flat, num_classes = _standardize_inputs(inputs, targets)
+        inputs_flat, targets_flat, _ = _standardize_inputs(inputs, targets)
         
         # Handle ignore_index
         if self.ignore_index is not None:
@@ -251,7 +259,7 @@ class FocalLoss_ArcFace(nn.Module):
         inputs_flat = self._arcface_transform(inputs_flat, targets_flat, self.margin, self.scale)
 
         # Calculate cross-entropy loss
-        ce_loss = F.cross_entropy(inputs_flat, targets_flat, reduction='none')
+        ce_loss = self.ce_loss(inputs_flat, targets_flat)
 
         # Calculate pt (probability of true class)
         pt = torch.exp(-ce_loss)
@@ -275,21 +283,18 @@ class FocalLoss_ArcFace(nn.Module):
             return loss.sum()
         else:
             return loss
-
-
-
-
+    
 class FocalLoss(nn.Module):
-    def __init__(self, alpha=None, gamma=2.0, smoothing=0.0, reduction='mean', ignore_index=-100):
+    def __init__(self, alpha=None, gamma=2.0, smoothing=0.1, reduction='mean', ignore_index=None):
         """
-        Optimized Focal Loss with Label Smoothing using PyTorch's CrossEntropyLoss.
+        Focal Loss with Label Smoothing for any type of classification/segmentation task.
         
         Args:
             alpha: Class weights tensor of shape (num_classes,) or None
             gamma: Focusing parameter (default: 2.0)
             smoothing: Label smoothing parameter (default: 0.1)
             reduction: 'mean', 'sum', or 'none'
-            ignore_index: Class index to ignore in loss calculation (default: -100)
+            ignore_index: Class index to ignore in loss calculation
         
         Input shapes supported:
             - Classification: (B, C) with targets (B,)
@@ -298,29 +303,23 @@ class FocalLoss(nn.Module):
             - Videos: (B, C, T, H, W) with targets (B, T, H, W)
         """
         super(FocalLoss, self).__init__()
-        
         self.alpha = alpha
         self.gamma = gamma
         self.smoothing = smoothing
         self.reduction = reduction
         self.ignore_index = ignore_index
         
-        assert 0.0 <= smoothing < 1.0, "Smoothing must be in [0.0, 1.0)"
-        assert gamma >= 0.0, "Gamma must be non-negative"
-        
         # Create CrossEntropyLoss with label smoothing and no reduction
-        # We'll apply focal weighting and alpha ourselves
         self.ce_loss = nn.CrossEntropyLoss(
-            weight=None,  # We'll apply alpha separately after focal weighting
+            weight=None,
             reduction='none',
-            ignore_index=ignore_index,
+            ignore_index=ignore_index if ignore_index is not None else -100,
             label_smoothing=smoothing
         )
-    
-    def forward(self, inputs, targets, num_classes = Optional[int]):
-        # Standardize input shape to (B*N, C)
 
-        inputs_flat, targets_flat, num_classes = _standardize_inputs(inputs, targets, num_classes)
+    def forward(self, inputs, targets):
+        # Standardize input shape to (B*N, C)
+        inputs_flat, targets_flat, _ = _standardize_inputs(inputs, targets)
         
         # Handle ignore_index
         if self.ignore_index is not None:
