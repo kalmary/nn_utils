@@ -361,3 +361,44 @@ class FocalLoss(nn.Module):
                 return loss.sum()
         
         return loss
+
+def calculate_l1_penalty_best_practice(model, l1_lambda, device  = torch.device):
+    """
+    Calculates the L1 penalty (LASSO) efficiently in PyTorch, 
+    ignoring bias parameters as per best practice.
+    
+    Args:
+        model (nn.Module): The PyTorch model.
+        l1_lambda (float): The regularization hyperparameter (lambda).
+        
+    Returns:
+        torch.Tensor: The calculated L1 penalty term, residing on the 
+                      same device as the model weights.
+    """
+    
+    model = model.to(device)
+
+    l1_regularization_list = [
+        torch.abs(param).view(-1).to(device)
+        for name, param in model.named_parameters()
+        if param.requires_grad and 'bias' not in name
+    ]
+    
+    if not l1_regularization_list:
+        if model.parameters():
+            try:
+                device = next(model.parameters()).device
+            except StopIteration:
+                device = 'cpu'
+        else:
+            device = 'cpu'
+
+        return torch.tensor(0.0, device=device)
+    
+    del model
+    
+    all_l1_params = torch.cat(l1_regularization_list)
+
+    l1_norm = torch.sum(all_l1_params)
+
+    return l1_lambda * l1_norm
