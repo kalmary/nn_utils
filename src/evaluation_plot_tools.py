@@ -10,6 +10,7 @@ import seaborn as sns
 import pathlib as pth
 from typing import Union, Optional
 from matplotlib.backends.backend_pdf import PdfPages
+import random
 
 
 class Plotter:
