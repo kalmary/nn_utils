@@ -119,18 +119,11 @@ def get_dataset_len(loader, verbose = False):
 
 def calculate_class_weights(loader: torch.utils.data.DataLoader,
                             num_classes: int,
-                            method: str = 'effective',  # 'inverse' or 'effective' # todo change to effective only
-                            beta: float = 0.9999,
-                            total: Optional[int] = None, 
                             device: torch.device = torch.device('cpu'),
-                            verbose: bool = True) -> torch.Tensor:
-
+                            verbose: bool = False) -> torch.Tensor:
     """
-    Calculates weights for each class with multiple strategies.
-    
-    Args:
-        method: 'inverse' or 'effective' (more stable)
-        beta: Only used for 'effective' method
+    Calculates normalized class weights inversely proportional to class frequency.
+    More frequent classes get lower weights. Weights sum to 1.
     """
     class_pixel_counts = Counter()
     total_pixels = 0
@@ -144,7 +137,7 @@ def calculate_class_weights(loader: torch.utils.data.DataLoader,
         total_pixels += targets_np.size
 
         if verbose and i % 10 == 0:
-            sys.stdout.write(f"\rProcessing iteration: {i}/{total if total else '?'}")
+            sys.stdout.write(f"\rProcessing batch {i}")
             sys.stdout.flush()
     
     if verbose:
@@ -159,40 +152,18 @@ def calculate_class_weights(loader: torch.utils.data.DataLoader,
         print(f"\nClass distribution:")
         for i, count in enumerate(class_counts):
             percentage = (count / total_pixels * 100) if total_pixels > 0 else 0
-            print(f"  Class {i}: {int(count):8d} points ({percentage:5.2f}%)")
+            print(f"  Class {i}: {int(count):8d} pixels ({percentage:5.2f}%)")
     
-    # Calculate weights based on method
-    if method == 'inverse':
-        # Your current method
-        weights = torch.zeros(num_classes, device=device)
-        for class_idx in range(num_classes):
-            count = class_counts[class_idx]
-            if count == 0:
-                if verbose:
-                    print(f"Warning: Class {class_idx} has no samples")
-                weights[class_idx] = 0.0
-            else:
-                weights[class_idx] = total_pixels / (count * num_classes)
-        
-        # Normalize
-        if weights.sum() > 0:
-            weights = weights / weights.sum() * num_classes
-            
-    elif method == 'effective':
-        # Effective number of samples method (more stable)
-        effective_num = 1.0 - torch.pow(beta, class_counts)
-        weights = (1.0 - beta) / (effective_num + 1e-7)  # Small epsilon for stability
-        
-        # Normalize
-        weights = weights / weights.sum() * num_classes
-        
-    else:
-        raise ValueError(f"Unknown method: {method}")
+    # Simple inverse frequency with small epsilon for stability
+    weights = 1.0 / (class_counts + 1e-7)
+    
+    # Normalize to sum to 1
+    weights = weights / weights.sum()
     
     if verbose:
-        print(f"\nClass weights (method={method}):")
+        print(f"\nNormalized class weights:")
         for i, weight in enumerate(weights):
-            print(f"  Class {i}: {weight:.4f}")
+            print(f"  Class {i}: {weight:.6f}")
     
     return weights
 
