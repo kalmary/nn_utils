@@ -47,9 +47,20 @@ class Plotter:
         
         if val_metric is not None:
             plt.plot(val_metric)
-            if metric[-1] != -1:
+            if metric[-1] == -1:
                 plt.ylim([0, max(val_metric)+0.1])
-            
+
+        if metric[-1] != -1 and val_metric is not None:
+            max_val = max(max(metric), max(val_metric))
+        elif metric[-1] != -1 and val_metric is None:
+            max_val = max(metric)
+        elif metric[-1] == -1 and val_metric is not None:
+            max_val = max(val_metric)
+        else:
+            raise ValueError('No proper metric values provided')
+        
+        plt.ylim([0., max_val+0.1])
+
         plt.xlabel('Epoch [n]')
         plt.ylabel(f'{metric_name} [-]')
         plt.title(f'{metric_name} progression during training')
