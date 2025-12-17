@@ -119,11 +119,12 @@ def get_dataset_len(loader, verbose = False):
 
 def calculate_class_weights(loader: torch.utils.data.DataLoader,
                             num_classes: int,
+                            power: float = 0.5,  # Lower = more aggressive (try 0.3-0.7)
                             device: torch.device = torch.device('cpu'),
-                            verbose: bool = False) -> torch.Tensor:
+                            verbose: bool = True) -> torch.Tensor:
     """
-    Calculates normalized class weights inversely proportional to class frequency.
-    More frequent classes get lower weights. Weights sum to 1.
+    Calculates normalized class weights with adjustable aggressiveness.
+    Lower power = more aggressive weighting toward rare classes.
     """
     class_pixel_counts = Counter()
     total_pixels = 0
@@ -154,14 +155,14 @@ def calculate_class_weights(loader: torch.utils.data.DataLoader,
             percentage = (count / total_pixels * 100) if total_pixels > 0 else 0
             print(f"  Class {i}: {int(count):8d} pixels ({percentage:5.2f}%)")
     
-    # Simple inverse frequency with small epsilon for stability
-    weights = 1.0 / (class_counts + 1e-7)
+    # Inverse frequency with power scaling (more aggressive)
+    weights = 1.0 / (torch.pow(class_counts + 1e-7, power))
     
     # Normalize to sum to 1
     weights = weights / weights.sum()
     
     if verbose:
-        print(f"\nNormalized class weights:")
+        print(f"\nNormalized class weights (power={power}):")
         for i, weight in enumerate(weights):
             print(f"  Class {i}: {weight:.6f}")
     
