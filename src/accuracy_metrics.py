@@ -159,7 +159,8 @@ def calculate_class_weights(loader: torch.utils.data.DataLoader,
     weights = 1.0 / (torch.pow(class_counts + 1e-7, power))
     
     # Normalize to sum to 1
-    weights = weights / weights.sum()
+    # weights = weights / weights.sum()
+    weights = weights / weights.max()
     
     if verbose:
         print(f"\nNormalized class weights (power={power}):")

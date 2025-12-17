@@ -43,9 +43,12 @@ class Plotter:
         plt.figure(figsize=(10, 5))
         if not metric[-1]==-1:
             plt.plot(metric)
+            plt.ylim([0, max(metric)+0.1])
         
         if val_metric is not None:
             plt.plot(val_metric)
+            if metric[-1] != -1:
+                plt.ylim([0, max(val_metric)+0.1])
             
         plt.xlabel('Epoch [n]')
         plt.ylabel(f'{metric_name} [-]')
@@ -58,6 +61,9 @@ class Plotter:
         # if metric = -1 remove from legend
         if metric[-1] == -1:
             legend_lst.pop(metric.index(-1))
+        
+        plt.xlim([0, len(metric)+1])
+        plt.xticks(np.arange(0, len(metric)+1, 10))
 
         plt.legend(legend_lst)
 
