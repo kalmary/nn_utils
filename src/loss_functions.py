@@ -178,7 +178,7 @@ class DiceLoss(nn.Module):
             return loss
 
 class FocalLoss_ArcFace(nn.Module):
-    def __init__(self, alpha=None, gamma=2.0, smoothing = 0.0, reduction='mean', ignore_index=None, margin = 0.3, scale = 30.0):
+    def __init__(self, alpha=None, gamma=0.0, smoothing = 0.0, reduction='mean', ignore_index=None, margin = 0.3, scale = 30.0):
         """
         Focal Loss for any type of classification/segmentation task.
         
@@ -361,6 +361,105 @@ class FocalLoss(nn.Module):
                 return loss.sum()
         
         return loss
+
+class DiscriminativeLoss(nn.Module):
+    def __init__(self, delta_v=0.5, delta_d=1.5, alpha=1.0, beta=1.0, gamma=0.001):
+        """
+        Discriminative Loss for instance segmentation feature learning.
+        Memory efficient - only computes instance means, not pairwise distances.
+        
+        Args:
+            delta_v: Variance margin (pull same-instance points together)
+            delta_d: Distance margin (push different-instance means apart)
+            alpha: Weight for variance term
+            beta: Weight for distance term  
+            gamma: Weight for regularization term
+            
+        Input shapes:
+            features: (B, C, N) - feature embeddings per point
+            labels: (B, N) - instance IDs per point
+        """
+        super(DiscriminativeLoss, self).__init__()
+        self.delta_v = delta_v
+        self.delta_d = delta_d
+        self.alpha = alpha
+        self.beta = beta
+        self.gamma = gamma
+
+    def forward(self, features, labels):
+        """
+        Args:
+            features: (B, C, N) - C-dimensional features for N points
+            labels: (B, N) - instance labels
+        """
+        B, C, N = features.shape
+        
+        # Transpose to (B, N, C) for easier processing
+        features = features.transpose(1, 2).contiguous()  # (B, N, C)
+        
+        total_loss = 0.0
+        
+        for b in range(B):
+            feat = features[b]  # (N, C)
+            label = labels[b]   # (N,)
+            
+            unique_labels = torch.unique(label)
+            n_instances = len(unique_labels)
+            
+            if n_instances == 0:
+                continue
+                
+            # Compute instance means
+            means = []
+            for inst_id in unique_labels:
+                mask = (label == inst_id)
+                if mask.sum() == 0:
+                    continue
+                inst_feat = feat[mask]  # (n_points_in_instance, C)
+                mean = inst_feat.mean(dim=0)  # (C,)
+                means.append(mean)
+            
+            if len(means) == 0:
+                continue
+                
+            means = torch.stack(means)  # (n_instances, C)
+            
+            # Variance term: pull points to their instance mean
+            var_loss = 0.0
+            for idx, inst_id in enumerate(unique_labels):
+                mask = (label == inst_id)
+                if mask.sum() == 0:
+                    continue
+                inst_feat = feat[mask]  # (n_points, C)
+                mean = means[idx]  # (C,)
+                
+                # Distance from mean, clamped by margin
+                dist = torch.norm(inst_feat - mean, dim=1)  # (n_points,)
+                dist = torch.clamp(dist - self.delta_v, min=0.0) ** 2
+                var_loss += dist.mean()
+            
+            var_loss /= n_instances
+            
+            # Distance term: push instance means apart
+            dist_loss = 0.0
+            if n_instances > 1:
+                # Pairwise distances between means
+                for i in range(n_instances):
+                    for j in range(i + 1, n_instances):
+                        dist = torch.norm(means[i] - means[j])
+                        dist = torch.clamp(2 * self.delta_d - dist, min=0.0) ** 2
+                        dist_loss += dist
+                
+                dist_loss /= (n_instances * (n_instances - 1) / 2)
+            
+            # Regularization term: keep means near origin
+            reg_loss = torch.norm(means, dim=1).mean()
+            
+            # Combine losses
+            total_loss += self.alpha * var_loss + self.beta * dist_loss + self.gamma * reg_loss
+        
+        return total_loss / B
+
 
 def calculate_l1_penalty_best_practice(model, l1_lambda, device  = torch.device):
     """
