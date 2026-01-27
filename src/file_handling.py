@@ -138,7 +138,7 @@ def save2json(data: dict, path: Union[str, pth.Path]) -> None:
             json.dump(data, f, indent=4)  # indent=4 for human-readable formatting
 
     except Exception as e:
-        raise (f"Error saving dictionary to {path}: {e}")
+        raise ValueError(f"Error saving dictionary to {path}: {e}")
     
 def load_json(path: Union [str, pth.Path]) -> dict:
 
@@ -164,4 +164,4 @@ def load_json(path: Union [str, pth.Path]) -> dict:
 
         return data
     except Exception as e:
-        raise (f"Error loading dictionary from {path}: {e}")
+        raise ValueError(f"Error loading dictionary from {path}: {e}")
