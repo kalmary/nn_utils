@@ -293,9 +293,8 @@ class Plotter:
 
     def threshold_hist(self,
                     file_name: str,
-                    class_stats: dict[int, list[float]],
-                    thresholds: list[float],
-                    percentiles: list[int] = [5, 10],
+                    class_stats: np.ndarray,
+                    percentiles: list[int] = [5, 95],
                     bins_step: float = 0.01):
         """
         Generating histograms for probability distribution for every class
@@ -303,7 +302,6 @@ class Plotter:
         Args:
             file_name: string containing file name
             class_stats: dict {class_id: [list of probabilities]}
-            thresholds: list of thresholds for each class
             percentiles: list of ints representing percentile
             bins_step:
         """
@@ -311,11 +309,9 @@ class Plotter:
         file_path = self.plots_dir.joinpath(file_name)
  
         with PdfPages(file_path) as pdf:
-            for class_id in range(len(thresholds)):
-                if not class_stats[class_id]:
-                    continue
+            for class_id, class_probs in enumerate(class_stats.T):
                     
-                probs = np.array(class_stats[class_id])
+                probs = class_probs.copy()
                 
                 fig, ax = plt.subplots(figsize=(10, 6))
                 
