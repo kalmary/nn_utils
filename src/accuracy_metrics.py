@@ -6,6 +6,8 @@ from collections import Counter
 from tqdm import tqdm
 import sys
 from typing import Optional
+import numpy as np
+from pathlib import Path
 
 def get_Probabilities(logits: torch.Tensor):
     """
@@ -167,6 +169,27 @@ def calculate_class_weights(loader: torch.utils.data.DataLoader,
         for i, weight in enumerate(weights):
             print(f"  Class {i}: {weight:.6f}")
     
+    return weights
+
+def compute_pos_weights(data_dir, num_classes: int,
+                        power: float = 0.25) -> torch.Tensor:
+    """
+    Inverse frequency weights with power dampening.
+    power=1.0 → raw inverse freq
+    power=0.5 → sqrt dampening
+    power=0.25 → fourth root (default, mild compression)
+    power=0.0 → uniform
+    """
+    counts = np.zeros(num_classes, dtype=np.int64)
+    for path in sorted(Path(data_dir).glob("*.npy")):
+        labels  = np.load(path)[:, 4].astype(np.int32)
+        counts += np.bincount(labels, minlength=num_classes)
+
+    weights              = (1.0 / (counts + 1e-6)) ** power
+    weights[counts == 0] = 0.0
+    weights              = (weights / weights.max()).astype(np.float32)
+
+    weights = torch.from_numpy(weights)
     return weights
 
 
