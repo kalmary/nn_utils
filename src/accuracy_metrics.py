@@ -5,9 +5,10 @@ import torch.nn.functional as F
 from collections import Counter
 from tqdm import tqdm
 import sys
-from typing import Optional
+from typing import Optional, Union
 import numpy as np
 from pathlib import Path
+import h5py
 
 def get_Probabilities(logits: torch.Tensor):
     """
@@ -119,57 +120,22 @@ def get_dataset_len(loader, verbose = False):
 
     return total
 
-def calculate_class_weights(loader: torch.utils.data.DataLoader,
-                            num_classes: int,
-                            power: float = 0.5,  # Lower = more aggressive (try 0.3-0.7)
-                            device: torch.device = torch.device('cpu'),
-                            verbose: bool = True) -> torch.Tensor:
-    """
-    Calculates normalized class weights with adjustable aggressiveness.
-    Lower power = more aggressive weighting toward rare classes.
-    """
-    class_pixel_counts = Counter()
-    total_pixels = 0
+def compute_pos_weights_h5(h5_path: Union[str, Path],
+                        num_classes: int,
+                        power: float = 0.25) -> torch.Tensor:
+    counts = np.zeros(num_classes, dtype=np.int64)
+    with h5py.File(h5_path, 'r') as f:
+        for key in f.keys():
+            cloud = f[key][:]
 
-    if verbose:
-        print("\nCalculating class weights...")
-    
-    for i, (_, targets) in enumerate(loader):
-        targets_np = targets.cpu().numpy().flatten()
-        class_pixel_counts.update(targets_np)
-        total_pixels += targets_np.size
+            labels = cloud[..., -1].astype(np.int32).ravel()
 
-        if verbose and i % 10 == 0:
-            sys.stdout.write(f"\rProcessing batch {i}")
-            sys.stdout.flush()
-    
-    if verbose:
-        sys.stdout.write(f"\n")
-        
-    # Convert to tensor
-    class_counts = torch.zeros(num_classes, device=device)
-    for class_idx in range(num_classes):
-        class_counts[class_idx] = class_pixel_counts.get(class_idx, 0)
-    
-    if verbose:
-        print(f"\nClass distribution:")
-        for i, count in enumerate(class_counts):
-            percentage = (count / total_pixels * 100) if total_pixels > 0 else 0
-            print(f"  Class {i}: {int(count):8d} pixels ({percentage:5.2f}%)")
-    
-    # Inverse frequency with power scaling (more aggressive)
-    weights = 1.0 / (torch.pow(class_counts + 1e-7, power))
-    
-    # Normalize to sum to 1
-    # weights = weights / weights.sum()
-    weights = weights / weights.max()
-    
-    if verbose:
-        print(f"\nNormalized class weights (power={power}):")
-        for i, weight in enumerate(weights):
-            print(f"  Class {i}: {weight:.6f}")
-    
-    return weights
+            counts += np.bincount(labels, minlength=num_classes)
+
+    weights              = (1.0 / (counts + 1e-6)) ** power
+    weights[counts == 0] = 0.0
+    weights              = (weights / weights.max()).astype(np.float32)
+    return torch.from_numpy(weights)
 
 def compute_pos_weights(data_dir, num_classes: int,
                         power: float = 0.25) -> torch.Tensor:
@@ -180,6 +146,8 @@ def compute_pos_weights(data_dir, num_classes: int,
     power=0.25 → fourth root (default, mild compression)
     power=0.0 → uniform
     """
+
+
     counts = np.zeros(num_classes, dtype=np.int64)
     for path in sorted(Path(data_dir).glob("*.npy")):
         labels  = np.load(path)[:, 4].astype(np.int32)
