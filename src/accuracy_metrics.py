@@ -137,7 +137,7 @@ def compute_pos_weights_h5(h5_path: Union[str, Path],
     weights              = (weights / weights.max()).astype(np.float32)
     return torch.from_numpy(weights)
 
-def compute_pos_weights(data_dir, num_classes: int,
+def compute_pos_weights_cloud(data_dir, num_classes: int,
                         power: float = 0.25) -> torch.Tensor:
     """
     Inverse frequency weights with power dampening.
@@ -159,6 +159,32 @@ def compute_pos_weights(data_dir, num_classes: int,
 
     weights = torch.from_numpy(weights)
     return weights
+
+def compute_pos_weights(data_dir, num_classes: int,
+                        power: float = 0.25) -> torch.Tensor:
+    """
+    Inverse frequency weights with power dampening.
+    power=1.0 → raw inverse freq
+    power=0.5 → sqrt dampening
+    power=0.25 → fourth root (default, mild compression)
+    power=0.0 → uniform
+    """
+
+
+    counts = np.zeros(num_classes, dtype=np.int64)
+    for path in sorted(Path(data_dir).glob("*.npy")):
+        labels = int(path.stem.rsplit('_', 1)[-1])
+        counts[labels] += 1
+
+    weights              = (1.0 / (counts + 1e-6)) ** power
+    weights[counts == 0] = 0.0
+    weights              = (weights / weights.max()).astype(np.float32)
+
+    weights = torch.from_numpy(weights)
+
+    labels = [int(p.stem.rsplit('_', 1)[-1]) for p in sorted(Path(data_dir).glob("*.npy"))]
+
+    return weights, labels
 
 
 def compute_mIoU(predictions: torch.Tensor, targets: torch.Tensor, num_classes: int):
