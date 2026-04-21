@@ -1,3 +1,4 @@
+from typing import Literal
 
 class EarlyStopping:
     """
@@ -8,26 +9,31 @@ class EarlyStopping:
         delta (float): Minimum change in loss to qualify as an improvement
         verbose (bool): Whether to print early stopping messages
     """
-    def __init__(self, patience=5, delta=0.001, verbose=False):
+    def __init__(self, patience=5, delta=0.001, mode: Literal["maximize", "minimize"] = "minimize", verbose=False):
         self.patience = patience
         self.delta = delta
         self.verbose = verbose
-        self.best_loss = None
+        self.best_val= None
         self.no_improvement_count = 0
         self.stop_training = False
 
-    def check_early_stop(self, val_loss):
+    def check_early_stop(self, val):
         """
         Check if training should be stopped early based on validation loss.
         
         Args:
-            val_loss (float): Current validation loss
+            val_loss (float): Current validation loss/metric
         
         Returns:
             None: Updates internal state and sets stop_training flag if needed
         """
-        if self.best_loss is None or val_loss < self.best_loss - self.delta:
-            self.best_loss = val_loss
+        improved = (
+            self.best_val is None or
+            (self.mode == "minimize" and val < self.best_val - self.delta) or
+            (self.mode == "maximize" and val > self.best_val + self.delta)
+        )
+        if improved:
+            self.best_val = val
             self.no_improvement_count = 0
         else:
             self.no_improvement_count += 1
