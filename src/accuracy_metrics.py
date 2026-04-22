@@ -161,7 +161,7 @@ def compute_pos_weights_cloud(data_dir, num_classes: int,
     return weights
 
 def compute_pos_weights(data_dir, num_classes: int,
-                        power: float = 0.25) -> torch.Tensor:
+                        power: float = 0.25, ignore_index: Optional[int] = None) -> torch.Tensor:
     """
     Inverse frequency weights with power dampening.
     power=1.0 → raw inverse freq
@@ -170,11 +170,15 @@ def compute_pos_weights(data_dir, num_classes: int,
     power=0.0 → uniform
     """
 
-
+    print(data_dir)
     counts = np.zeros(num_classes, dtype=np.int64)
     for path in sorted(Path(data_dir).glob("*.npy")):
         labels = int(path.stem.rsplit('_', 1)[-1])
+        if ignore_index is not None:
+            if labels == ignore_index:
+                continue
         counts[labels] += 1
+    print(counts)
 
     weights              = (1.0 / (counts + 1e-6)) ** power
     weights[counts == 0] = 0.0
@@ -183,6 +187,8 @@ def compute_pos_weights(data_dir, num_classes: int,
     weights = torch.from_numpy(weights)
 
     labels = [int(p.stem.rsplit('_', 1)[-1]) for p in sorted(Path(data_dir).glob("*.npy"))]
+    if ignore_index is not None:
+        labels = [l for l in labels if l != ignore_index]
 
     return weights, labels
 
