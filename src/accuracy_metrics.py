@@ -170,7 +170,6 @@ def compute_pos_weights(data_dir, num_classes: int,
     power=0.0 → uniform
     """
 
-    print(data_dir)
     counts = np.zeros(num_classes, dtype=np.int64)
     for path in sorted(Path(data_dir).glob("*.npy")):
         labels = int(path.stem.rsplit('_', 1)[-1])
@@ -178,8 +177,7 @@ def compute_pos_weights(data_dir, num_classes: int,
             if labels == ignore_index:
                 continue
         counts[labels] += 1
-    print(counts)
-
+  
     weights              = (1.0 / (counts + 1e-6)) ** power
     weights[counts == 0] = 0.0
     weights              = (weights / weights.max()).astype(np.float32)
