@@ -178,6 +178,8 @@ def compute_pos_weights(data_dir, num_classes: int,
             if labels == ignore_index:
                 continue
         counts[labels] += 1
+
+    print(f"Class counts: {counts}")
   
     weights              = (1.0 / (counts + 1e-6)) ** power
     weights[counts == 0] = 0.0
