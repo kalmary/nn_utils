@@ -172,14 +172,13 @@ def compute_pos_weights(data_dir, num_classes: int,
 
     counts = np.zeros(num_classes, dtype=np.int64)
     for path in sorted(Path(data_dir).glob("*.npy")):
-        print(f"Processing file: {path.name}")
+
         labels = int(path.stem.rsplit('_', 1)[-1])
         if ignore_index is not None:
             if labels == ignore_index:
                 continue
         counts[labels] += 1
 
-    print(f"Class counts: {counts}")
   
     weights              = (1.0 / (counts + 1e-6)) ** power
     weights[counts == 0] = 0.0
