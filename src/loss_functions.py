@@ -177,33 +177,22 @@ class DiceLoss(nn.Module):
         else:
             return loss
 
-class FocalLoss_ArcFace(nn.Module):
-    def __init__(self, alpha=None, gamma=0.0, smoothing = 0.0, reduction='mean', ignore_index=None, margin = 0.3, scale = 30.0):
-        """
-        Focal Loss for any type of classification/segmentation task.
-        
-        Args:
-            alpha: Class weights tensor of shape (num_classes,) or None
-            gamma: Focusing parameter (default: 2.0)
-            reduction: 'mean', 'sum', or 'none'
-            ignore_index: Class index to ignore in loss calculation
-            margin: m - margins in radius 
-            scale: s - scaling factor 
-        
-        Input shapes supported:
-            - Classification: (B, C) with targets (B,)
-            - Point clouds: (B, C, N) or (B, N, C) with targets (B, N)
-            - Images: (B, C, H, W) with targets (B, H, W)
-            - Videos: (B, C, T, H, W) with targets (B, T, H, W)
-        """
-        super(FocalLoss_ArcFace, self).__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-        self.smoothing = smoothing
-        self.reduction = reduction
+class ArcFaceFocalLoss(nn.Module):
+    def __init__(self,
+                 alpha=None,
+                 gamma: float = 2.0,
+                 smoothing: float = 0.0,
+                 reduction: str = 'mean',
+                 ignore_index: Optional[int] = None,
+                 margin: float = 0.3,
+                 scale: float = 30.0):
+        super().__init__()
+        self.alpha        = alpha
+        self.gamma        = gamma
+        self.reduction    = reduction
         self.ignore_index = ignore_index
-        self.margin = margin
-        self.scale = scale
+        self.margin       = margin
+        self.scale        = scale
 
         self.ce_loss = nn.CrossEntropyLoss(
             weight=None,
@@ -213,76 +202,50 @@ class FocalLoss_ArcFace(nn.Module):
         )
 
     @staticmethod
-    def _arcface_transform(inputs_flat, targets_flat, margin, scale):
-        """
-        Adding ArcFace margins to logits
-        
-        Args:
-            inputs_flat: (B*N, C) - Raw logits
-            targets_flat: (B*N,) - True classes
-            margin: m - margins in radius 
-            scale: s - scaling factor 
-        """
-        # Standardize input shape to (B*N, C)
-        normalized = F.normalize(inputs_flat, p=2, dim=1)  
-        
-        # Extracting values for true classes
-        cos_theta = normalized.gather(1, targets_flat.unsqueeze(1)) 
-        cos_theta = cos_theta.squeeze(1)  
-        
-        # Adding margin: cos(theta + m)
-        theta = torch.acos(cos_theta.clamp(-1.0 + 1e-7, 1.0 - 1e-7))
-        theta_m = theta + margin
-        cos_theta_m = torch.cos(theta_m)
-        
-        # Changing values only for true labels
-        normalized = normalized.scatter(1, targets_flat.unsqueeze(1), cos_theta_m.unsqueeze(1))
-        
-        # Scaling 
-        logits_arcface = normalized * scale
-        
-        return logits_arcface
+    def _arcface_logits(embeddings: torch.Tensor,
+                        weight: torch.Tensor,
+                        targets: torch.Tensor,
+                        margin: float,
+                        scale: float) -> torch.Tensor:
+        emb = F.normalize(embeddings, p=2, dim=1)
+        w   = F.normalize(weight, p=2, dim=1)
+        cos_theta = emb @ w.T
 
-    def forward(self, inputs, targets):
-        # Standardize input shape to (B*N, C)
-        inputs_flat, targets_flat, _ = _standardize_inputs(inputs, targets)
-        
-        # Handle ignore_index
+        theta     = torch.acos(cos_theta.clamp(-1.0 + 1e-7, 1.0 - 1e-7))
+        cos_theta_m = torch.cos(theta + margin)
+
+        one_hot = torch.zeros_like(cos_theta).scatter_(1, targets.unsqueeze(1), 1.0)
+        logits  = scale * (one_hot * cos_theta_m + (1.0 - one_hot) * cos_theta)
+        return logits
+
+    def forward(self,
+                embeddings: torch.Tensor,
+                weight: torch.Tensor,
+                targets: torch.Tensor) -> torch.Tensor:
         if self.ignore_index is not None:
-            mask = targets_flat != self.ignore_index
-            inputs_flat = inputs_flat[mask]
-            targets_flat = targets_flat[mask]
-            if inputs_flat.numel() == 0:
-                return torch.tensor(0.0, device=inputs.device, requires_grad=True)
+            mask       = targets != self.ignore_index
+            embeddings = embeddings[mask]
+            targets    = targets[mask]
+            if embeddings.numel() == 0:
+                return torch.tensor(0.0, device=embeddings.device, requires_grad=True)
 
-        # Adding ArcFace Margins to logits 
-        inputs_flat = self._arcface_transform(inputs_flat, targets_flat, self.margin, self.scale)
+        logits  = self._arcface_logits(embeddings, weight, targets, self.margin, self.scale)
+        ce      = self.ce_loss(logits, targets)
+        pt      = torch.exp(-ce)
+        focal   = (1.0 - pt) ** self.gamma
 
-        # Calculate cross-entropy loss
-        ce_loss = self.ce_loss(inputs_flat, targets_flat)
-
-        # Calculate pt (probability of true class)
-        pt = torch.exp(-ce_loss)
-
-        # Calculate focal term
-        focal_term = (1 - pt) ** self.gamma
-
-        # Apply alpha weighting
         if self.alpha is not None:
-            if self.alpha.device != inputs.device:
-                self.alpha = self.alpha.to(inputs.device)
-            alpha_per_sample = self.alpha.gather(0, targets_flat)
-            focal_term = alpha_per_sample * focal_term
+            if self.alpha.device != embeddings.device:
+                self.alpha = self.alpha.to(embeddings.device)
+            focal = self.alpha.gather(0, targets) * focal
 
-        # Combine to get focal loss
-        loss = focal_term * ce_loss
+        loss = focal * ce
 
         if self.reduction == 'mean':
             return loss.mean()
         elif self.reduction == 'sum':
             return loss.sum()
-        else:
-            return loss
+        return loss
     
 class FocalLoss(nn.Module):
     def __init__(self, alpha=None, gamma=2.0, smoothing=0.1, reduction='mean', ignore_index=None):
