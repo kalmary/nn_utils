@@ -179,7 +179,7 @@ def compute_pos_weights(data_dir, num_classes: int,
                 continue
         counts[labels] += 1
 
-  
+
     weights              = (1.0 / (counts + 1e-6)) ** power
     weights[counts == 0] = 0.0
     weights              = (weights / weights.max()).astype(np.float32)
