@@ -89,7 +89,7 @@ class IoULoss(nn.Module):
         
         # Handle ignore_index
         if self.ignore_index is not None:
-            mask = targets_flat != self.ignore_index
+            mask = targets_flat < self.ignore_index
             probs = probs[mask]
             targets_flat = targets_flat[mask]
             if probs.numel() == 0:
@@ -148,7 +148,7 @@ class DiceLoss(nn.Module):
         
         # Handle ignore_index
         if self.ignore_index is not None:
-            mask = targets_flat != self.ignore_index
+            mask = targets_flat < self.ignore_index
             probs = probs[mask]
             targets_flat = targets_flat[mask]
             if probs.numel() == 0:
@@ -223,7 +223,7 @@ class ArcFaceFocalLoss(nn.Module):
                 weight: torch.Tensor,
                 targets: torch.Tensor) -> torch.Tensor:
         if self.ignore_index is not None:
-            mask       = targets != self.ignore_index
+            mask       = targets < self.ignore_index
             embeddings = embeddings[mask]
             targets    = targets[mask]
             if embeddings.numel() == 0:
@@ -286,9 +286,11 @@ class FocalLoss(nn.Module):
         
         # Handle ignore_index
         if self.ignore_index is not None:
-            mask = targets_flat != self.ignore_index
+            mask = targets_flat < self.ignore_index
             if not mask.any():
                 return torch.tensor(0.0, device=inputs.device, requires_grad=True)
+            inputs_flat = inputs_flat[mask]
+            targets_flat = targets_flat[mask]
 
         # Calculate cross-entropy loss with label smoothing
         ce_loss = self.ce_loss(inputs_flat, targets_flat)
@@ -312,9 +314,8 @@ class FocalLoss(nn.Module):
 
         # Apply reduction
         if self.ignore_index is not None:
-            loss = loss * mask
             if self.reduction == 'mean':
-                return loss.sum() / mask.sum().clamp(min=1)
+                return loss.mean()
             elif self.reduction == 'sum':
                 return loss.sum()
         else:

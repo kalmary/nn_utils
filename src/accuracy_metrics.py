@@ -175,7 +175,7 @@ def compute_pos_weights(data_dir, num_classes: int,
 
         labels = int(path.stem.rsplit('_', 1)[-1])
         if ignore_index is not None:
-            if labels == ignore_index:
+            if labels >= ignore_index:
                 continue
         counts[labels] += 1
 
@@ -188,7 +188,7 @@ def compute_pos_weights(data_dir, num_classes: int,
 
     labels = [int(p.stem.rsplit('_', 1)[-1]) for p in sorted(Path(data_dir).glob("*.npy"))]
     if ignore_index is not None:
-        labels = [l for l in labels if l != ignore_index]
+        labels = [l for l in labels if l < ignore_index]
 
     return weights, labels
 
@@ -243,5 +243,4 @@ def compute_mIoU(predictions: torch.Tensor, targets: torch.Tensor, num_classes: 
     miou = valid_ious.mean().item()
 
     return miou, class_ious
-
 
