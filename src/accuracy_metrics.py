@@ -160,6 +160,28 @@ def compute_pos_weights_cloud(data_dir, num_classes: int,
     weights = torch.from_numpy(weights)
     return weights
 
+
+def compute_pos_weights_prob(
+    data_dir: Union[str, Path],
+    num_classes: int,
+    power: float = 0.25,
+) -> torch.Tensor:
+    """Compute class weights from labels stored in column 4 of NPY tiles."""
+    counts = np.zeros(num_classes, dtype=np.int64)
+
+    for path in sorted(Path(data_dir).glob("*.npy")):
+        labels = np.load(path, mmap_mode="r")[:, 4].astype(np.int64)
+        if np.any((labels < 0) | (labels >= num_classes)):
+            raise ValueError(f"Label outside configured classes in {path}")
+        counts += np.bincount(labels, minlength=num_classes)
+
+    weights = (1.0 / (counts + 1e-6)) ** power
+    weights[counts == 0] = 0.0
+    if weights.max() > 0:
+        weights /= weights.max()
+    return torch.from_numpy(weights.astype(np.float32))
+
+
 def compute_pos_weights(data_dir, num_classes: int,
                         power: float = 0.25, ignore_index: Optional[int] = None) -> torch.Tensor:
     """
