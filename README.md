@@ -16,15 +16,26 @@ Clone the repository to your local machine:
 git clone [https://github.com/kalmary/nn_utils.git]
 cd nn_utils
 
-python -m venv .venv
-source .venv/bin/activate
-
-pip install requirements.txt # install all requirements, without pytorch and cuda
-
-# tested on this, but should work with any other version
-pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128 
+uv sync --extra pytorch-cpu  # core runtime, CPU-only
+uv sync --group test --extra pytorch-cpu  # CPU-only on macOS, Windows, or Linux
+# macOS system profile (also CPU): uv sync --group test --extra pytorch-macos
+# Linux with CUDA 13.2: uv sync --group test --extra pytorch-linux-cuda
+# Windows with CUDA 13.2: uv sync --group test --extra pytorch-windows-cuda
 ```
 
+
+---
+
+### Usage
+
+Run imports and utilities through the locked environment using the same PyTorch profile selected during installation:
+
+```bash
+uv run --no-sync python -c "from src.file_handling import load_json"
+uv run --no-sync pytest
+```
+
+When this repository is used as the `nn_utils` package inside a parent project, import its public API with `from nn_utils import ...`; plotting names are loaded only when requested.
 
 ---
 
