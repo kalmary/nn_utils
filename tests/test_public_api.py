@@ -1,4 +1,7 @@
 import nn_utils
+import subprocess
+import sys
+from pathlib import Path
 
 
 def test_public_exports_cover_processing_utilities_without_plotting_imports():
@@ -31,3 +34,18 @@ def test_public_exports_cover_processing_utilities_without_plotting_imports():
     assert all(hasattr(nn_utils, name) for name in expected)
     assert "Plotter" not in nn_utils.__all__
     assert "ClassificationReport" not in nn_utils.__all__
+
+
+def test_basic_import_does_not_load_reporting_dependencies():
+    code = (
+        "import sys, nn_utils; "
+        "assert not {'matplotlib', 'seaborn', 'sklearn'} & sys.modules.keys()"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=Path(__file__).resolve().parents[2],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr

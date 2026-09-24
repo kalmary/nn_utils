@@ -61,7 +61,7 @@ inference must not load visualization dependencies.
 - [x] Replace wildcard exports with an explicit compatibility export list.
 - [ ] Use package-relative internal imports and remove any working-directory dependence.
 - [ ] Keep old import paths forwarding to the tested implementations if files are split.
-- [ ] Separate plotting/report code from tensor-only imports so `basic` stays headless.
+- [x] Separate plotting/report code from tensor-only imports so `basic` stays headless.
 - [ ] Avoid framework abstractions; keep the existing functions and small classes.
 
 ## Task 4: Consumer acceptance
