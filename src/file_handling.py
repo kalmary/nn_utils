@@ -165,3 +165,48 @@ def load_json(path: Union [str, pth.Path]) -> dict:
         return data
     except Exception as e:
         raise (f"Error loading dictionary from {path}: {e}")
+
+
+def test_convert_str_values_preserves_comments_and_mutates_config():
+    config = {
+        "layers": "[8, 16]",
+        "enabled": "True",
+        "name": "oak",
+        "comment": "[not parsed]",
+    }
+
+    converted = convert_str_values(config)
+
+    assert converted is config
+    assert config == {
+        "layers": [8, 16],
+        "enabled": True,
+        "name": "oak",
+        "comment": "[not parsed]",
+    }
+
+
+def test_json_round_trip_preserves_values(tmp_path):
+    path = tmp_path / "config.json"
+    config = {"layers": [8, 16], "enabled": True, "name": "oak"}
+
+    save2json(config, path)
+
+    assert load_json(path) == config
+
+
+def test_model_state_round_trip_uses_numbered_files(tmp_path):
+    source = nn.Linear(2, 1)
+    with torch.no_grad():
+        source.weight.copy_(torch.tensor([[2.0, 3.0]]))
+        source.bias.copy_(torch.tensor([4.0]))
+
+    first = save_model(tmp_path / "model.pt", source)
+    second = save_model(tmp_path / "model.pt", source)
+    restored = load_model(first, nn.Linear(2, 1), device=torch.device("cpu"))
+
+    assert first.name == "model_1.pt"
+    assert second.name == "model_2.pt"
+    assert second.exists()
+    torch.testing.assert_close(restored.weight, source.weight)
+    torch.testing.assert_close(restored.bias, source.bias)

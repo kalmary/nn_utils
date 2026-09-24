@@ -35,7 +35,7 @@
 - [x] Test probability/label conversion, accuracy, class weighting, mIoU, and dataset-length behavior.
 - [ ] Test every loss for expected shapes, dtypes, finite values, invalid inputs, and device consistency.
 - [x] Test early stopping state transitions and callback outputs.
-- [ ] Test JSON conversion and model save/load round trips using a small deterministic model.
+- [x] Test JSON conversion and model save/load round trips using a small deterministic model.
 - [ ] Test plot/report creation in a temporary directory with a non-interactive backend.
 - [ ] Record the explicit names used by PCD and tree-classification consumers.
 
