@@ -49,3 +49,10 @@ def test_basic_import_does_not_load_reporting_dependencies():
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_plotting_names_remain_available_as_named_imports():
+    from nn_utils import ClassificationReport, Plotter
+
+    assert callable(ClassificationReport)
+    assert callable(Plotter)
