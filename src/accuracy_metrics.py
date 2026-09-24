@@ -244,3 +244,54 @@ def compute_mIoU(predictions: torch.Tensor, targets: torch.Tensor, num_classes: 
 
     return miou, class_ious
 
+
+def test_probability_labels_accuracy_and_dataset_length():
+    logits = torch.tensor([[0.0, 0.0], [0.0, 2.0]])
+    probabilities = get_Probabilities(logits)
+
+    torch.testing.assert_close(probabilities[0], torch.tensor([0.5, 0.5]))
+    torch.testing.assert_close(get_intLabels(probabilities), torch.tensor([0, 1]))
+    assert calculate_accuracy(logits, torch.tensor([0, 0])) == 0.5
+    assert get_dataset_len([object(), object(), object()]) == 3
+
+
+def test_weighted_accuracy_uses_weights_of_present_labels():
+    logits = torch.tensor([[0.0, 2.0, 0.0], [0.0, 2.0, 0.0]])
+    labels = torch.tensor([1, 2])
+    weights = torch.tensor([1.0, 2.0, 3.0])
+
+    assert abs(calculate_weighted_accuracy(logits, labels, weights) - 1 / 3) < 1e-6
+
+
+def test_miou_uses_target_classes_and_retains_class_order():
+    predicted = torch.tensor([0, 1, 1])
+    targets = torch.tensor([0, 0, 1])
+
+    mean_iou, class_ious = compute_mIoU(predicted, targets, num_classes=3)
+
+    assert mean_iou == 0.5
+    torch.testing.assert_close(class_ious, torch.tensor([0.5, 0.5, 0.0]))
+
+
+def test_class_weights_from_h5_and_cloud_files(tmp_path):
+    h5_path = tmp_path / "clouds.h5"
+    with h5py.File(h5_path, "w") as data:
+        data.create_dataset("cloud", data=np.array([[0, 0], [0, 1], [0, 1]]))
+
+    cloud_path = tmp_path / "cloud.npy"
+    np.save(cloud_path, np.array([[0, 0, 0, 0, 0], [0, 0, 0, 0, 1], [0, 0, 0, 0, 1]]))
+
+    expected = torch.tensor([1.0, 0.5, 0.0])
+    torch.testing.assert_close(compute_pos_weights_h5(h5_path, 3, power=1.0), expected)
+    torch.testing.assert_close(compute_pos_weights_cloud(tmp_path, 3, power=1.0), expected)
+
+
+def test_class_weights_from_names_return_sorted_labels(tmp_path):
+    np.save(tmp_path / "b_1.npy", np.array([1]))
+    np.save(tmp_path / "a_0.npy", np.array([0]))
+    np.save(tmp_path / "c_1.npy", np.array([1]))
+
+    weights, labels = compute_pos_weights(tmp_path, 3, power=1.0)
+
+    torch.testing.assert_close(weights, torch.tensor([1.0, 0.5, 0.0]))
+    assert labels == [0, 1, 1]

@@ -32,7 +32,7 @@
 
 **Files:** add colocated unit tests to the files owning each function; add cross-module tests under `tests/`.
 
-- [ ] Test probability/label conversion, accuracy, class weighting, mIoU, and dataset-length behavior.
+- [x] Test probability/label conversion, accuracy, class weighting, mIoU, and dataset-length behavior.
 - [ ] Test every loss for expected shapes, dtypes, finite values, invalid inputs, and device consistency.
 - [x] Test early stopping state transitions and callback outputs.
 - [ ] Test JSON conversion and model save/load round trips using a small deterministic model.
