@@ -25,6 +25,9 @@ def _standardize_inputs(inputs, targets, num_classes=None):
         targets: (B*N,)
         num_classes: Inferred or provided number of classes
     """
+    if inputs.dim() < 2:
+        raise ValueError(f"Expected input with at least 2 dimensions, got {inputs.dim()}D")
+
     # Infer num_classes if not provided
     if num_classes is None:
         if inputs.dim() == 2:
@@ -465,3 +468,82 @@ def calculate_l1_penalty_best_practice(model, l1_lambda, device  = torch.device)
     l1_norm = torch.sum(all_l1_params)
 
     return l1_lambda * l1_norm
+
+
+def test_iou_and_dice_losses_preserve_channel_layout_and_reduction():
+    channel_first = torch.tensor([[[2.0, 0.0], [0.0, 2.0]]], requires_grad=True)
+    channel_last = channel_first.detach().transpose(1, 2)
+    targets = torch.tensor([[0, 1]])
+
+    for loss_class in (IoULoss, DiceLoss):
+        first = loss_class(num_classes=2, reduction="none")(channel_first, targets)
+        last = loss_class(num_classes=2, reduction="none")(channel_last, targets)
+
+        assert first.shape == (2,)
+        assert first.dtype == torch.float32
+        assert torch.isfinite(first).all()
+        torch.testing.assert_close(first, last)
+
+    IoULoss(num_classes=2)(channel_first, targets).backward()
+    assert channel_first.grad is not None
+
+
+def test_focal_loss_matches_cross_entropy_without_focusing_or_smoothing():
+    logits = torch.tensor([[2.0, 0.0], [0.0, 2.0]], requires_grad=True)
+    targets = torch.tensor([0, 1])
+
+    loss = FocalLoss(gamma=0.0, smoothing=0.0, reduction="none")(logits, targets)
+
+    assert loss.shape == (2,)
+    torch.testing.assert_close(loss, F.cross_entropy(logits, targets, reduction="none"))
+    loss.sum().backward()
+    assert logits.grad is not None
+
+
+def test_all_ignored_focal_targets_return_zero_on_input_device():
+    logits = torch.tensor([[2.0, 0.0]])
+
+    loss = FocalLoss(ignore_index=255)(logits, torch.tensor([255]))
+
+    assert loss.item() == 0.0
+    assert loss.device == logits.device
+    assert loss.requires_grad
+
+
+def test_arcface_and_discriminative_losses_return_finite_scalars():
+    embeddings = torch.tensor([[1.0, 0.0], [0.0, 1.0]], requires_grad=True)
+    weights = torch.eye(2)
+    targets = torch.tensor([0, 1])
+    arcface_loss = ArcFaceFocalLoss()(embeddings, weights, targets)
+
+    features = torch.tensor([[[0.0, 0.1, 2.0], [0.0, 0.1, 2.0]]], requires_grad=True)
+    labels = torch.tensor([[0, 0, 1]])
+    discriminative_loss = DiscriminativeLoss()(features, labels)
+
+    for loss in (arcface_loss, discriminative_loss):
+        assert loss.ndim == 0
+        assert torch.isfinite(loss)
+        assert loss.device.type == "cpu"
+
+    arcface_loss.backward()
+    discriminative_loss.backward()
+    assert embeddings.grad is not None
+    assert features.grad is not None
+
+
+def test_invalid_loss_input_dimension_is_rejected():
+    import pytest
+
+    with pytest.raises(ValueError, match="at least 2 dimensions"):
+        FocalLoss()(torch.tensor([1.0, 0.0]), torch.tensor([0]))
+
+
+def test_l1_penalty_ignores_bias_parameters():
+    model = nn.Linear(2, 1)
+    with torch.no_grad():
+        model.weight.copy_(torch.tensor([[2.0, -3.0]]))
+        model.bias.copy_(torch.tensor([100.0]))
+
+    penalty = calculate_l1_penalty_best_practice(model, 0.5, device=torch.device("cpu"))
+
+    torch.testing.assert_close(penalty, torch.tensor(2.5))
