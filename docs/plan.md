@@ -33,7 +33,7 @@
 **Files:** add colocated unit tests to the files owning each function; add cross-module tests under `tests/`.
 
 - [x] Test probability/label conversion, accuracy, class weighting, mIoU, and dataset-length behavior.
-- [ ] Test every loss for expected shapes, dtypes, finite values, invalid inputs, and device consistency.
+- [x] Test every loss for expected shapes, dtypes, finite values, invalid inputs, and CPU device consistency. CUDA device checks remain hardware-dependent.
 - [x] Test early stopping state transitions and callback outputs.
 - [x] Test JSON conversion and model save/load round trips using a small deterministic model.
 - [x] Test plot/report creation in a temporary directory with a non-interactive backend.
@@ -59,16 +59,16 @@ inference must not load visualization dependencies.
 **Files:** modify `__init__.py`; reorganize `src/` only after tests exist.
 
 - [x] Replace wildcard exports with an explicit compatibility export list.
-- [ ] Use package-relative internal imports and remove any working-directory dependence.
-- [ ] Keep old import paths forwarding to the tested implementations if files are split.
+- [x] Use package-relative internal imports and remove any working-directory dependence. The current source files have no cross-module imports; the package entry point uses relative imports.
+- [x] Keep old import paths forwarding to the tested implementations if files are split. No source files were split, so existing paths remain the implementations.
 - [x] Separate plotting/report code from tensor-only imports so `basic` stays headless.
-- [ ] Avoid framework abstractions; keep the existing functions and small classes.
+- [x] Avoid framework abstractions; keep the existing functions and small classes.
 
 ## Task 4: Consumer acceptance
 
 - [ ] Run the PCD segmentation utility imports and focused model/data-loader tests against this checkout.
 - [ ] Run the tree-classification utility imports and focused model/data-loader tests against this checkout.
-- [ ] Compare nested `nn_utils` checkout revisions before integration.
+- [x] Compare nested `nn_utils` checkout revisions before integration. Both consumers currently point to `bd88ee6`; the canonical checkout is ahead.
 - [ ] Request approval before any Git/submodule revision update.
 - [ ] Re-run both consumer suites after their approved revision updates.
 

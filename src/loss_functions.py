@@ -523,6 +523,7 @@ def test_arcface_and_discriminative_losses_return_finite_scalars():
     for loss in (arcface_loss, discriminative_loss):
         assert loss.ndim == 0
         assert torch.isfinite(loss)
+        assert loss.dtype == embeddings.dtype
         assert loss.device.type == "cpu"
 
     arcface_loss.backward()
@@ -547,3 +548,71 @@ def test_l1_penalty_ignores_bias_parameters():
     penalty = calculate_l1_penalty_best_practice(model, 0.5, device=torch.device("cpu"))
 
     torch.testing.assert_close(penalty, torch.tensor(2.5))
+
+
+def test_classification_loss_reductions_preserve_values():
+    logits = torch.tensor([[2.0, 0.0], [0.0, 2.0]])
+    targets = torch.tensor([0, 1])
+
+    for loss_class in (IoULoss, DiceLoss, FocalLoss):
+        options = {"num_classes": 2} if loss_class is not FocalLoss else {}
+        separate = loss_class(reduction="none", **options)(logits, targets)
+        total = loss_class(reduction="sum", **options)(logits, targets)
+        average = loss_class(reduction="mean", **options)(logits, targets)
+
+        assert separate.dtype == logits.dtype
+        assert separate.device == logits.device
+        assert torch.isfinite(separate).all()
+        torch.testing.assert_close(total, separate.sum())
+        torch.testing.assert_close(average, separate.mean())
+
+
+def test_ignored_targets_return_zero_on_input_device():
+    logits = torch.tensor([[2.0, 0.0]])
+    targets = torch.tensor([255])
+
+    losses = [
+        IoULoss(num_classes=2, ignore_index=255)(logits, targets),
+        DiceLoss(num_classes=2, ignore_index=255)(logits, targets),
+        ArcFaceFocalLoss(ignore_index=255)(logits, torch.eye(2), targets),
+    ]
+
+    for loss in losses:
+        assert loss.item() == 0.0
+        assert loss.dtype == logits.dtype
+        assert loss.device == logits.device
+
+
+def test_classification_losses_reject_one_dimensional_logits():
+    import pytest
+
+    for loss in (IoULoss(num_classes=2), DiceLoss(num_classes=2), FocalLoss()):
+        with pytest.raises(ValueError, match="at least 2 dimensions"):
+            loss(torch.tensor([1.0, 0.0]), torch.tensor([0]))
+
+
+def test_arcface_loss_reductions_preserve_values():
+    embeddings = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
+    weights = torch.eye(2)
+    targets = torch.tensor([0, 1])
+
+    separate = ArcFaceFocalLoss(reduction="none")(embeddings, weights, targets)
+    total = ArcFaceFocalLoss(reduction="sum")(embeddings, weights, targets)
+    average = ArcFaceFocalLoss(reduction="mean")(embeddings, weights, targets)
+
+    assert separate.shape == (2,)
+    assert separate.dtype == embeddings.dtype
+    assert separate.device == embeddings.device
+    assert torch.isfinite(separate).all()
+    torch.testing.assert_close(total, separate.sum())
+    torch.testing.assert_close(average, separate.mean())
+
+
+def test_arcface_and_discriminative_losses_reject_malformed_inputs():
+    import pytest
+
+    with pytest.raises(RuntimeError):
+        ArcFaceFocalLoss()(torch.eye(2), torch.eye(2), torch.tensor([0, 2]))
+
+    with pytest.raises(ValueError):
+        DiscriminativeLoss()(torch.zeros(2, 3), torch.zeros(3))
