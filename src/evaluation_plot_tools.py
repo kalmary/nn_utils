@@ -372,3 +372,29 @@ def ClassificationReport(file_path: Union[str, pth.Path],
 
     with open(file_path, 'w') as f:
         f.write(report)
+
+
+def test_metric_plot_is_saved_to_requested_directory(tmp_path):
+    output = tmp_path / "accuracy_history.png"
+
+    Plotter(class_num=2, plots_dir=tmp_path).plot_metric_hist(
+        output.name, [0.2, 0.6], [0.1, 0.5]
+    )
+
+    assert output.is_file()
+    assert output.stat().st_size > 0
+
+
+def test_classification_report_includes_additional_info(tmp_path):
+    output = tmp_path / "report.txt"
+
+    ClassificationReport(
+        output,
+        pred=np.array([0, 1, 1]),
+        target=np.array([0, 1, 0]),
+        additional_info="model=v1",
+    )
+
+    report = output.read_text()
+    assert "precision" in report
+    assert "Additional info: model=v1" in report

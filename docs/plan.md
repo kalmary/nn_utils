@@ -36,7 +36,7 @@
 - [ ] Test every loss for expected shapes, dtypes, finite values, invalid inputs, and device consistency.
 - [x] Test early stopping state transitions and callback outputs.
 - [x] Test JSON conversion and model save/load round trips using a small deterministic model.
-- [ ] Test plot/report creation in a temporary directory with a non-interactive backend.
+- [x] Test plot/report creation in a temporary directory with a non-interactive backend.
 - [ ] Record the explicit names used by PCD and tree-classification consumers.
 
 ## Task 3: Make the package boundary explicit
