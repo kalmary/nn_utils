@@ -37,7 +37,22 @@
 - [x] Test early stopping state transitions and callback outputs.
 - [x] Test JSON conversion and model save/load round trips using a small deterministic model.
 - [x] Test plot/report creation in a temporary directory with a non-interactive backend.
-- [ ] Record the explicit names used by PCD and tree-classification consumers.
+- [x] Record the explicit names used by PCD and tree-classification consumers.
+
+### Consumer import inventory
+
+The current `utils` packages in both consumers re-export `nn_utils` names. The
+imports below are the names used directly by their source files; preserve them
+when replacing those re-exports with named imports.
+
+| Consumer | Imported names |
+| --- | --- |
+| Both | `load_json`, `load_model`, `convert_str_values`, `save2json`, `save_model`, `Plotter`, `ClassificationReport`, `calculate_accuracy`, `get_intLabels`, `get_Probabilities`, `get_dataset_len`, `FocalLoss`, `wrap_hist` |
+| PCD only | `EarlyStopping`, `compute_mIoU`, `compute_pos_weights_h5` |
+| Tree classification only | `compute_pos_weights`, `ArcFaceFocalLoss` |
+
+`Plotter` and `ClassificationReport` remain explicit lazy imports: normal
+inference must not load visualization dependencies.
 
 ## Task 3: Make the package boundary explicit
 
