@@ -74,3 +74,4 @@ explicit = true
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py"]
+testpaths = ["src/training_callbacks.py", "tests"]

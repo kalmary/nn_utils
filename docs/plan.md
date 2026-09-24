@@ -34,7 +34,7 @@
 
 - [ ] Test probability/label conversion, accuracy, class weighting, mIoU, and dataset-length behavior.
 - [ ] Test every loss for expected shapes, dtypes, finite values, invalid inputs, and device consistency.
-- [ ] Test early stopping state transitions and callback outputs.
+- [x] Test early stopping state transitions and callback outputs.
 - [ ] Test JSON conversion and model save/load round trips using a small deterministic model.
 - [ ] Test plot/report creation in a temporary directory with a non-interactive backend.
 - [ ] Record the explicit names used by PCD and tree-classification consumers.
@@ -43,7 +43,7 @@
 
 **Files:** modify `__init__.py`; reorganize `src/` only after tests exist.
 
-- [ ] Replace wildcard exports with an explicit compatibility export list.
+- [x] Replace wildcard exports with an explicit compatibility export list.
 - [ ] Use package-relative internal imports and remove any working-directory dependence.
 - [ ] Keep old import paths forwarding to the tested implementations if files are split.
 - [ ] Separate plotting/report code from tensor-only imports so `basic` stays headless.
