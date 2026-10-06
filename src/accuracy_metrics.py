@@ -183,6 +183,50 @@ def compute_pos_weights_cloud(data_dir, num_classes: int,
     weights /= weights.max()
     return torch.from_numpy(weights.astype(np.float32))
 
+
+def compute_pos_weights_prob(
+    data_dir: Union[str, Path],
+    num_classes: int,
+    power: float = 0.25,
+) -> torch.Tensor:
+    """Compute class weights from labels stored in column 4 of NPY tiles."""
+    data_dir = Path(data_dir)
+    if not data_dir.exists():
+        raise FileNotFoundError(f"Dataset directory does not exist: {data_dir}")
+    if not data_dir.is_dir():
+        raise NotADirectoryError(f"Dataset path is not a directory: {data_dir}")
+
+    paths = sorted(data_dir.glob("*.npy"))
+    if not paths:
+        raise FileNotFoundError(
+            f"No .npy point-cloud tiles found in dataset directory: {data_dir}"
+        )
+
+    counts = np.zeros(num_classes, dtype=np.int64)
+    for path in paths:
+        data = np.load(path, mmap_mode="r")
+        if data.ndim != 2 or data.shape[1] != 5:
+            raise ValueError(f"Expected (N, 5) data in {path}, got {data.shape}")
+        if len(data) == 0:
+            raise ValueError(f"Point-cloud tile contains no points: {path}")
+
+        label_values = np.asarray(data[:, 4])
+        if not np.all(np.isfinite(label_values)):
+            raise ValueError(f"Non-finite labels found in {path}")
+        if np.any(label_values != np.floor(label_values)):
+            raise ValueError(f"Non-integer labels found in {path}")
+
+        labels = label_values.astype(np.int64)
+        if np.any((labels < 0) | (labels >= num_classes)):
+            raise ValueError(f"Label outside configured classes in {path}")
+        counts += np.bincount(labels, minlength=num_classes)
+
+    weights = (1.0 / (counts + 1e-6)) ** power
+    weights[counts == 0] = 0.0
+    weights /= weights.max()
+    return torch.from_numpy(weights.astype(np.float32))
+
+
 def compute_pos_weights(data_dir, num_classes: int,
                         power: float = 0.25, ignore_index: Optional[int] = None) -> torch.Tensor:
     """
