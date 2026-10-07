@@ -51,6 +51,56 @@ def test_basic_import_does_not_load_reporting_dependencies():
     assert result.returncode == 0, result.stderr
 
 
+def test_json_helpers_import_without_torch_or_h5py():
+    code = """
+import builtins
+
+original_import = builtins.__import__
+
+def import_without_model_dependencies(name, *args, **kwargs):
+    if name.split('.', 1)[0] in {'torch', 'h5py'}:
+        raise ImportError(f'{name} is not available')
+    return original_import(name, *args, **kwargs)
+
+builtins.__import__ = import_without_model_dependencies
+from nn_utils import convert_str_values, load_json, save_to_json, wrap_hist
+assert all(callable(item) for item in (convert_str_values, load_json, save_to_json, wrap_hist))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=Path(__file__).resolve().parents[2],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_tensor_helpers_import_without_h5py_or_plotting():
+    code = """
+import builtins
+
+original_import = builtins.__import__
+
+def import_without_offline_dependencies(name, *args, **kwargs):
+    if name.split('.', 1)[0] in {'h5py', 'matplotlib', 'pyvista', 'seaborn', 'sklearn'}:
+        raise ImportError(f'{name} is not available')
+    return original_import(name, *args, **kwargs)
+
+builtins.__import__ = import_without_offline_dependencies
+from nn_utils import EarlyStopping, FocalLoss, calculate_accuracy
+assert all(callable(item) for item in (EarlyStopping, FocalLoss, calculate_accuracy))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=Path(__file__).resolve().parents[2],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
 def test_plotting_names_remain_available_as_named_imports():
     from nn_utils import Plotter, classification_report
 

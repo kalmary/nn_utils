@@ -1,9 +1,13 @@
+from __future__ import annotations
+
+import ast
 import json
 import pathlib as pth
-from typing import Union, Optional
-import torch
-import torch.nn as nn
-import ast
+from typing import TYPE_CHECKING, Optional, Union
+
+if TYPE_CHECKING:
+    import torch
+    import torch.nn as nn
 
 
 def wrap_hist(**kwargs) -> dict:
@@ -59,6 +63,8 @@ def save_model(path: Union[str, pth.Path],
     If existing_ok=False, deletes any existing model files with the same base name.
     """
 
+    import torch
+
     path = pth.Path(path)
     base_name = path.stem.split('_')[0] # Base name (e.g., 'ResNet')
     parent_dir = path.parent
@@ -101,6 +107,8 @@ def load_model(file_path: Union[str, pth.Path],
     Raises:
         ValueError: If the file path does not exist
     """
+    import torch
+
     file_path = pth.Path(file_path)
     if not file_path.exists():
         raise ValueError(f'Path {file_path} does not exist.')
@@ -196,6 +204,9 @@ def test_json_round_trip_preserves_values(tmp_path):
 
 
 def test_model_state_round_trip_uses_numbered_files(tmp_path):
+    import torch
+    import torch.nn as nn
+
     source = nn.Linear(2, 1)
     with torch.no_grad():
         source.weight.copy_(torch.tensor([[2.0, 3.0]]))

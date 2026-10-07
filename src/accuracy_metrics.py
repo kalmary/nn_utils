@@ -7,7 +7,6 @@ import sys
 from typing import Optional, Union
 import numpy as np
 from pathlib import Path
-import h5py
 
 def get_probabilities(logits: torch.Tensor):
     """
@@ -122,6 +121,8 @@ def get_dataset_len(loader, verbose = False):
 def compute_pos_weights_h5(h5_path: Union[str, Path],
                         num_classes: int,
                         power: float = 0.25) -> torch.Tensor:
+    import h5py
+
     counts = np.zeros(num_classes, dtype=np.int64)
     with h5py.File(h5_path, 'r') as f:
         for key in f.keys():
@@ -273,6 +274,8 @@ def test_miou_uses_target_classes_and_retains_class_order():
 
 
 def test_class_weights_from_h5_and_cloud_files(tmp_path):
+    import h5py
+
     h5_path = tmp_path / "clouds.h5"
     with h5py.File(h5_path, "w") as data:
         data.create_dataset("cloud", data=np.array([[0, 0], [0, 1], [0, 1]]))
