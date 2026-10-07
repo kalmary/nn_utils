@@ -47,7 +47,7 @@ when replacing those re-exports with named imports.
 
 | Consumer | Imported names |
 | --- | --- |
-| Both | `load_json`, `load_model`, `convert_str_values`, `save2json`, `save_model`, `Plotter`, `classification_report`, `calculate_accuracy`, `get_int_labels`, `get_probabilities`, `get_dataset_len`, `FocalLoss`, `wrap_hist` |
+| Both | `load_json`, `load_model`, `convert_str_values`, `save_to_json`, `save_model`, `Plotter`, `classification_report`, `calculate_accuracy`, `get_int_labels`, `get_probabilities`, `get_dataset_len`, `FocalLoss`, `wrap_hist` |
 | PCD only | `EarlyStopping`, `compute_miou`, `compute_pos_weights_h5` |
 | Tree classification only | `compute_pos_weights`, `ArcfaceFocalLoss` |
 

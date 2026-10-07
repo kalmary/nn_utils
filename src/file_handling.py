@@ -115,7 +115,7 @@ def load_model(file_path: Union[str, pth.Path],
 
     return model
 
-def save2json(data: dict, path: Union[str, pth.Path]) -> None:
+def save_to_json(data: dict, path: Union[str, pth.Path]) -> None:
     """
     Save a dictionary to a JSON file.
 
@@ -190,7 +190,7 @@ def test_json_round_trip_preserves_values(tmp_path):
     path = tmp_path / "config.json"
     config = {"layers": [8, 16], "enabled": True, "name": "oak"}
 
-    save2json(config, path)
+    save_to_json(config, path)
 
     assert load_json(path) == config
 

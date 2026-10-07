@@ -19,7 +19,7 @@ def test_public_exports_cover_processing_utilities_without_plotting_imports():
         "convert_str_values",
         "save_model",
         "load_model",
-        "save2json",
+        "save_to_json",
         "load_json",
         "IouLoss",
         "DiceLoss",

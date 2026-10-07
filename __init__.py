@@ -13,7 +13,7 @@ from .src.file_handling import (
     convert_str_values,
     load_json,
     load_model,
-    save2json,
+    save_to_json,
     save_model,
     wrap_hist,
 )
@@ -41,7 +41,7 @@ __all__ = [
     "convert_str_values",
     "save_model",
     "load_model",
-    "save2json",
+    "save_to_json",
     "load_json",
     "IouLoss",
     "DiceLoss",
