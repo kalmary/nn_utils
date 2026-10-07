@@ -44,11 +44,11 @@ When this repository is used as the `nn_utils` package inside a parent project, 
 ```
 src
 ├── accuracy_metrics.py
-│   ├── get_Probabilities
-│   ├── get_intLabels
+│   ├── get_probabilities
+│   ├── get_int_labels
 │   ├── calculate_accuracy
 │   ├── calculate_weighted_accuracy
-│   ├── compute_mIoU
+│   ├── compute_miou
 │   ├── get_dataset_len
 │   └── calculate_class_weights
 ├── evaluation_plot_tools.py
@@ -59,7 +59,7 @@ src
 │   │   ├── cnf_matrix_analysis
 │   │   ├── prc_curve
 │   │   └── roc_curve
-│   └── ClassificationReport
+│   └── classification_report
 ├── file_handling.py
 │   ├── convert_str_values
 │   ├── save_model
@@ -67,8 +67,8 @@ src
 │   ├── save2json
 │   └── load_json
 ├── loss_functions.py
-│   ├── IoULoss
-│   ├── FocalLoss_ArcFace
+│   ├── IouLoss
+│   ├── ArcfaceFocalLoss
 │   ├── DiceLoss
 │   ├── FocalLoss
 │   └── LabelSmoothingFocalLoss

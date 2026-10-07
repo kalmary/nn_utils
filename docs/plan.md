@@ -13,7 +13,7 @@
 - Existing function and class names, parameters, return types, tensor shapes, and reduction behavior.
 - Model state loading/saving and JSON conversion formats.
 - Metrics and loss behavior for binary, multiclass, batched, empty, and ignored-label inputs currently supported.
-- `Plotter`, `ClassificationReport`, and `EarlyStopping` behavior.
+- `Plotter`, `classification_report`, and `EarlyStopping` behavior.
 - Existing imports through `nn_utils` while consumers transition from wildcard imports to explicit names.
 
 ## Task 1: Establish the uv project
@@ -47,11 +47,11 @@ when replacing those re-exports with named imports.
 
 | Consumer | Imported names |
 | --- | --- |
-| Both | `load_json`, `load_model`, `convert_str_values`, `save2json`, `save_model`, `Plotter`, `ClassificationReport`, `calculate_accuracy`, `get_intLabels`, `get_Probabilities`, `get_dataset_len`, `FocalLoss`, `wrap_hist` |
-| PCD only | `EarlyStopping`, `compute_mIoU`, `compute_pos_weights_h5` |
-| Tree classification only | `compute_pos_weights`, `ArcFaceFocalLoss` |
+| Both | `load_json`, `load_model`, `convert_str_values`, `save2json`, `save_model`, `Plotter`, `classification_report`, `calculate_accuracy`, `get_int_labels`, `get_probabilities`, `get_dataset_len`, `FocalLoss`, `wrap_hist` |
+| PCD only | `EarlyStopping`, `compute_miou`, `compute_pos_weights_h5` |
+| Tree classification only | `compute_pos_weights`, `ArcfaceFocalLoss` |
 
-`Plotter` and `ClassificationReport` remain explicit lazy imports: normal
+`Plotter` and `classification_report` remain explicit lazy imports: normal
 inference must not load visualization dependencies.
 
 ## Task 3: Make the package boundary explicit

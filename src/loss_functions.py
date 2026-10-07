@@ -60,7 +60,7 @@ def _standardize_inputs(inputs, targets, num_classes=None):
     return logits, targets, num_classes
 
 
-class IoULoss(nn.Module):
+class IouLoss(nn.Module):
     def __init__(self, num_classes, smooth=1e-6, reduction='mean', ignore_index=None):
         """
         IoU Loss for any type of segmentation task.
@@ -77,7 +77,7 @@ class IoULoss(nn.Module):
             - Images: (B, C, H, W) with targets (B, H, W)
             - Videos: (B, C, T, H, W) with targets (B, T, H, W)
         """
-        super(IoULoss, self).__init__()
+        super().__init__()
         self.num_classes = num_classes
         self.smooth = smooth
         self.reduction = reduction
@@ -180,7 +180,7 @@ class DiceLoss(nn.Module):
         else:
             return loss
 
-class ArcFaceFocalLoss(nn.Module):
+class ArcfaceFocalLoss(nn.Module):
     def __init__(self,
                  alpha=None,
                  gamma: float = 2.0,
@@ -475,7 +475,7 @@ def test_iou_and_dice_losses_preserve_channel_layout_and_reduction():
     channel_last = channel_first.detach().transpose(1, 2)
     targets = torch.tensor([[0, 1]])
 
-    for loss_class in (IoULoss, DiceLoss):
+    for loss_class in (IouLoss, DiceLoss):
         first = loss_class(num_classes=2, reduction="none")(channel_first, targets)
         last = loss_class(num_classes=2, reduction="none")(channel_last, targets)
 
@@ -484,7 +484,7 @@ def test_iou_and_dice_losses_preserve_channel_layout_and_reduction():
         assert torch.isfinite(first).all()
         torch.testing.assert_close(first, last)
 
-    IoULoss(num_classes=2)(channel_first, targets).backward()
+    IouLoss(num_classes=2)(channel_first, targets).backward()
     assert channel_first.grad is not None
 
 
@@ -514,7 +514,7 @@ def test_arcface_and_discriminative_losses_return_finite_scalars():
     embeddings = torch.tensor([[1.0, 0.0], [0.0, 1.0]], requires_grad=True)
     weights = torch.eye(2)
     targets = torch.tensor([0, 1])
-    arcface_loss = ArcFaceFocalLoss()(embeddings, weights, targets)
+    arcface_loss = ArcfaceFocalLoss()(embeddings, weights, targets)
 
     features = torch.tensor([[[0.0, 0.1, 2.0], [0.0, 0.1, 2.0]]], requires_grad=True)
     labels = torch.tensor([[0, 0, 1]])
@@ -554,7 +554,7 @@ def test_classification_loss_reductions_preserve_values():
     logits = torch.tensor([[2.0, 0.0], [0.0, 2.0]])
     targets = torch.tensor([0, 1])
 
-    for loss_class in (IoULoss, DiceLoss, FocalLoss):
+    for loss_class in (IouLoss, DiceLoss, FocalLoss):
         options = {"num_classes": 2} if loss_class is not FocalLoss else {}
         separate = loss_class(reduction="none", **options)(logits, targets)
         total = loss_class(reduction="sum", **options)(logits, targets)
@@ -572,9 +572,9 @@ def test_ignored_targets_return_zero_on_input_device():
     targets = torch.tensor([255])
 
     losses = [
-        IoULoss(num_classes=2, ignore_index=255)(logits, targets),
+        IouLoss(num_classes=2, ignore_index=255)(logits, targets),
         DiceLoss(num_classes=2, ignore_index=255)(logits, targets),
-        ArcFaceFocalLoss(ignore_index=255)(logits, torch.eye(2), targets),
+        ArcfaceFocalLoss(ignore_index=255)(logits, torch.eye(2), targets),
     ]
 
     for loss in losses:
@@ -586,7 +586,7 @@ def test_ignored_targets_return_zero_on_input_device():
 def test_classification_losses_reject_one_dimensional_logits():
     import pytest
 
-    for loss in (IoULoss(num_classes=2), DiceLoss(num_classes=2), FocalLoss()):
+    for loss in (IouLoss(num_classes=2), DiceLoss(num_classes=2), FocalLoss()):
         with pytest.raises(ValueError, match="at least 2 dimensions"):
             loss(torch.tensor([1.0, 0.0]), torch.tensor([0]))
 
@@ -596,9 +596,9 @@ def test_arcface_loss_reductions_preserve_values():
     weights = torch.eye(2)
     targets = torch.tensor([0, 1])
 
-    separate = ArcFaceFocalLoss(reduction="none")(embeddings, weights, targets)
-    total = ArcFaceFocalLoss(reduction="sum")(embeddings, weights, targets)
-    average = ArcFaceFocalLoss(reduction="mean")(embeddings, weights, targets)
+    separate = ArcfaceFocalLoss(reduction="none")(embeddings, weights, targets)
+    total = ArcfaceFocalLoss(reduction="sum")(embeddings, weights, targets)
+    average = ArcfaceFocalLoss(reduction="mean")(embeddings, weights, targets)
 
     assert separate.shape == (2,)
     assert separate.dtype == embeddings.dtype
@@ -612,7 +612,7 @@ def test_arcface_and_discriminative_losses_reject_malformed_inputs():
     import pytest
 
     with pytest.raises(RuntimeError):
-        ArcFaceFocalLoss()(torch.eye(2), torch.eye(2), torch.tensor([0, 2]))
+        ArcfaceFocalLoss()(torch.eye(2), torch.eye(2), torch.tensor([0, 2]))
 
     with pytest.raises(ValueError):
         DiscriminativeLoss()(torch.zeros(2, 3), torch.zeros(3))

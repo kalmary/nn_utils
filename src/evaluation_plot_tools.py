@@ -2,7 +2,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_curve, roc_curve, auc, classification_report
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_curve, roc_curve, auc, classification_report as sklearn_classification_report
 from sklearn.preprocessing import label_binarize
 import numpy as np
 import seaborn as sns
@@ -347,9 +347,9 @@ class Plotter:
         
         print(f"Histograms saved to: {file_path}")
 
-def ClassificationReport(file_path: Union[str, pth.Path],
-                         pred: np.ndarray, target: np.ndarray,
-                         additional_info: Optional[str] = None) -> None:
+def classification_report(file_path: Union[str, pth.Path],
+                          pred: np.ndarray, target: np.ndarray,
+                          additional_info: Optional[str] = None) -> None:
     """
     Generate and save a detailed classification report to a text file.
     
@@ -365,7 +365,7 @@ def ClassificationReport(file_path: Union[str, pth.Path],
     pred = pred.flatten()
     target = target.flatten()
 
-    report: str = classification_report(target, pred)
+    report: str = sklearn_classification_report(target, pred)
 
     if additional_info is not None:
         report += f'\nAdditional info: {additional_info}'
@@ -388,7 +388,7 @@ def test_metric_plot_is_saved_to_requested_directory(tmp_path):
 def test_classification_report_includes_additional_info(tmp_path):
     output = tmp_path / "report.txt"
 
-    ClassificationReport(
+    classification_report(
         output,
         pred=np.array([0, 1, 1]),
         target=np.array([0, 1, 0]),

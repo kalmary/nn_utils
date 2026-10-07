@@ -1,13 +1,13 @@
 from .src.accuracy_metrics import (
     calculate_accuracy,
     calculate_weighted_accuracy,
-    compute_mIoU,
+    compute_miou,
     compute_pos_weights,
     compute_pos_weights_cloud,
     compute_pos_weights_h5,
     get_dataset_len,
-    get_intLabels,
-    get_Probabilities,
+    get_int_labels,
+    get_probabilities,
 )
 from .src.file_handling import (
     convert_str_values,
@@ -18,34 +18,34 @@ from .src.file_handling import (
     wrap_hist,
 )
 from .src.loss_functions import (
-    ArcFaceFocalLoss,
+    ArcfaceFocalLoss,
     DiceLoss,
     DiscriminativeLoss,
     FocalLoss,
-    IoULoss,
+    IouLoss,
     calculate_l1_penalty_best_practice,
 )
 from .src.training_callbacks import EarlyStopping
 
 __all__ = [
-    "get_Probabilities",
-    "get_intLabels",
+    "get_probabilities",
+    "get_int_labels",
     "calculate_accuracy",
     "calculate_weighted_accuracy",
     "get_dataset_len",
     "compute_pos_weights_h5",
     "compute_pos_weights_cloud",
     "compute_pos_weights",
-    "compute_mIoU",
+    "compute_miou",
     "wrap_hist",
     "convert_str_values",
     "save_model",
     "load_model",
     "save2json",
     "load_json",
-    "IoULoss",
+    "IouLoss",
     "DiceLoss",
-    "ArcFaceFocalLoss",
+    "ArcfaceFocalLoss",
     "FocalLoss",
     "DiscriminativeLoss",
     "calculate_l1_penalty_best_practice",
@@ -54,7 +54,7 @@ __all__ = [
 
 
 def __getattr__(name):
-    if name in {"Plotter", "ClassificationReport"}:
+    if name in {"Plotter", "classification_report"}:
         from .src import evaluation_plot_tools
 
         return getattr(evaluation_plot_tools, name)

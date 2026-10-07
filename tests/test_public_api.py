@@ -6,24 +6,24 @@ from pathlib import Path
 
 def test_public_exports_cover_processing_utilities_without_plotting_imports():
     expected = {
-        "get_Probabilities",
-        "get_intLabels",
+        "get_probabilities",
+        "get_int_labels",
         "calculate_accuracy",
         "calculate_weighted_accuracy",
         "get_dataset_len",
         "compute_pos_weights_h5",
         "compute_pos_weights_cloud",
         "compute_pos_weights",
-        "compute_mIoU",
+        "compute_miou",
         "wrap_hist",
         "convert_str_values",
         "save_model",
         "load_model",
         "save2json",
         "load_json",
-        "IoULoss",
+        "IouLoss",
         "DiceLoss",
-        "ArcFaceFocalLoss",
+        "ArcfaceFocalLoss",
         "FocalLoss",
         "DiscriminativeLoss",
         "calculate_l1_penalty_best_practice",
@@ -33,7 +33,7 @@ def test_public_exports_cover_processing_utilities_without_plotting_imports():
     assert set(nn_utils.__all__) == expected
     assert all(hasattr(nn_utils, name) for name in expected)
     assert "Plotter" not in nn_utils.__all__
-    assert "ClassificationReport" not in nn_utils.__all__
+    assert "classification_report" not in nn_utils.__all__
 
 
 def test_basic_import_does_not_load_reporting_dependencies():
@@ -52,7 +52,7 @@ def test_basic_import_does_not_load_reporting_dependencies():
 
 
 def test_plotting_names_remain_available_as_named_imports():
-    from nn_utils import ClassificationReport, Plotter
+    from nn_utils import Plotter, classification_report
 
-    assert callable(ClassificationReport)
+    assert callable(classification_report)
     assert callable(Plotter)

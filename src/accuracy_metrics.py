@@ -9,7 +9,7 @@ import numpy as np
 from pathlib import Path
 import h5py
 
-def get_Probabilities(logits: torch.Tensor):
+def get_probabilities(logits: torch.Tensor):
     """
     Convert logits to probabilities using softmax.
     
@@ -22,7 +22,7 @@ def get_Probabilities(logits: torch.Tensor):
     probs = F.softmax(logits, dim=1)
     return probs
 
-def get_intLabels(probabilities: torch.Tensor):
+def get_int_labels(probabilities: torch.Tensor):
     """
     Convert probabilities to integer class labels.
     
@@ -192,7 +192,7 @@ def compute_pos_weights(data_dir, num_classes: int,
     return weights, labels
 
 
-def compute_mIoU(predictions: torch.Tensor, targets: torch.Tensor, num_classes: int):
+def compute_miou(predictions: torch.Tensor, targets: torch.Tensor, num_classes: int):
     """
     Compute mean Intersection over Union (mIoU) for segmentation tasks.
     
@@ -246,10 +246,10 @@ def compute_mIoU(predictions: torch.Tensor, targets: torch.Tensor, num_classes: 
 
 def test_probability_labels_accuracy_and_dataset_length():
     logits = torch.tensor([[0.0, 0.0], [0.0, 2.0]])
-    probabilities = get_Probabilities(logits)
+    probabilities = get_probabilities(logits)
 
     torch.testing.assert_close(probabilities[0], torch.tensor([0.5, 0.5]))
-    torch.testing.assert_close(get_intLabels(probabilities), torch.tensor([0, 1]))
+    torch.testing.assert_close(get_int_labels(probabilities), torch.tensor([0, 1]))
     assert calculate_accuracy(logits, torch.tensor([0, 0])) == 0.5
     assert get_dataset_len([object(), object(), object()]) == 3
 
@@ -266,7 +266,7 @@ def test_miou_uses_target_classes_and_retains_class_order():
     predicted = torch.tensor([0, 1, 1])
     targets = torch.tensor([0, 0, 1])
 
-    mean_iou, class_ious = compute_mIoU(predicted, targets, num_classes=3)
+    mean_iou, class_ious = compute_miou(predicted, targets, num_classes=3)
 
     assert mean_iou == 0.5
     torch.testing.assert_close(class_ious, torch.tensor([0.5, 0.5, 0.0]))
