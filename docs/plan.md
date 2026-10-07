@@ -21,8 +21,8 @@
 **Files:** create `.python-version`, `pyproject.toml`, `uv.lock`; update `.gitignore` and installation documentation.
 
 - [x] Inventory imports in `src/*.py` and declare only direct packages.
-- [x] Define Python 3.12, the `basic` group, and a `test` group including `basic`, `pytest`, `matplotlib`, and `pyvista`.
-- [x] Keep plotting/report dependencies in `test`; tensor, metric, loss, callback, and model-I/O imports in `basic` do not eagerly load visualization modules.
+- [x] Define Python 3.12, the `basic` group, and a `dev` group including `basic`, `pytest`, `matplotlib`, and `pyvista`.
+- [x] Keep plotting/report dependencies in `dev`; tensor, metric, loss, callback, and model-I/O imports in `basic` do not eagerly load visualization modules.
 - [x] Configure official CPU and CUDA 13.2 profiles for PyTorch 2.14/Torchvision 0.29; Torchaudio is not used.
 - [x] Verify the basic environment can import non-plotting utilities.
 - [x] Verify the test environment can import the complete project.

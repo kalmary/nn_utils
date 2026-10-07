@@ -17,10 +17,10 @@ git clone [https://github.com/kalmary/nn_utils.git]
 cd nn_utils
 
 uv sync --extra pytorch-cpu  # core runtime, CPU-only
-uv sync --group test --extra pytorch-cpu  # CPU-only on macOS, Windows, or Linux
-# macOS system profile (also CPU): uv sync --group test --extra pytorch-macos
-# Linux with CUDA 13.2: uv sync --group test --extra pytorch-linux-cuda
-# Windows with CUDA 13.2: uv sync --group test --extra pytorch-windows-cuda
+uv sync --group dev --extra pytorch-cpu  # CPU-only on macOS, Windows, or Linux
+# macOS system profile (also CPU): uv sync --group dev --extra pytorch-macos
+# Linux with CUDA 13.2: uv sync --group dev --extra pytorch-linux-cuda
+# Windows with CUDA 13.2: uv sync --group dev --extra pytorch-windows-cuda
 ```
 
 
