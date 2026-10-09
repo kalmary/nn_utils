@@ -66,10 +66,10 @@ inference must not load visualization dependencies.
 
 ## Task 4: Consumer acceptance
 
-- [ ] Run the PCD segmentation utility imports and focused model/data-loader tests against this checkout.
-- [ ] Run the tree-classification utility imports and focused model/data-loader tests against this checkout.
-- [x] Compare nested `nn_utils` checkout revisions before integration. Both consumers currently point to `bd88ee6`; the canonical checkout is ahead.
-- [ ] Request approval before any Git/submodule revision update.
+- [x] Run the PCD segmentation utility imports and focused offline-workflow tests against the shared public interface. All 44 PCD-owned cases passed; one parent-project invocation case requires the root project environment rather than the isolated PCD environment.
+- [x] Run the tree-classification utility imports and focused tests against the shared public interface. All 31 cases passed.
+- [x] Compare nested `nn_utils` checkout revisions before integration. The canonical checkout and both consumer checkouts point to `c2e2689` before the standalone pytest configuration update.
+- [x] Request approval before any Git/submodule revision update.
 - [ ] Re-run both consumer suites after their approved revision updates.
 
 ## Completion Gate
